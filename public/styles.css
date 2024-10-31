@@ -1,0 +1,119 @@
+/* Set base font color and background */
+body {
+    background-color: #1e1e1e;
+    color: #f5f5f5;
+}
+
+/* FeatherCSS form elements in dark mode */
+input,
+select,
+button {
+    background-color: #333;
+    color: #f5f5f5;
+    border: 1px solid #555;
+}
+
+button {
+    background-color: #444;
+    color: #f5f5f5;
+}
+
+.card {
+    background-color: #2d2d2d;
+    border: 1px solid #444;
+    color: #f5f5f5;
+}
+
+/* Drop zone styling */
+#drop-zone {
+    background-color: #333;
+    border: 2px dashed #555;
+    color: #bbb;
+}
+
+/* RX Display box */
+#rx-display {
+    background-color: #2d2d2d;
+    border: 1px solid #444;
+    width: 256px;
+    height: 256px;
+}
+
+/* Log container styling */
+#log {
+    background-color: #1a1a1a; /* Slightly darker than the card color */
+    font-family: monospace; /* Monospace font */
+    font-size: 1em !important;/* Smaller font size */
+    color: #f5f5f5;
+    padding: 10px;
+    border-radius: 0px;
+}
+
+#log li {
+    padding: 5px 0;
+    border-bottom: 1px solid #333;
+    font-size: 1em !important;/* Smaller font size */
+}
+
+/* Timestamp style */
+.timestamp {
+    color: #888; /* Grey color for timestamp */
+    margin-right: 5px;
+    font-size: 1em !important;/* Smaller font size */
+}
+
+/* RX and TX styles */
+.log-rx {
+    color: #32cd32; /* Green for RX */
+    font-size: 1em !important;/* Smaller font size */
+}
+
+.log-tx {
+    color: #ffa500; /* Orange for TX */
+    font-size: 1em !important;/* Smaller font size */
+}
+
+/* Link styling for callsigns */
+.callsign-link {
+    color: inherit;
+    text-decoration: underline;
+    font-size: 1em !important;/* Smaller font size */
+}
+
+
+/* Header info styling */
+#rx-info ul {
+    list-style-type: none;
+    padding: 0;
+    color: #f5f5f5; /* Ensure header info text is white */
+}
+
+#rx-info li {
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: #f5f5f5; /* Consistent color for RX header info */
+}
+
+  /* Smaller form fields */
+  .input, select {
+    font-size: 1em;
+    padding: 5px;
+}
+.form-group label {
+    font-size: 1em;
+}
+/* Side-by-side form fields */
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+.form-row .form-group {
+    flex: 1;
+}
+ /* Smaller callsign input fields */
+ #to-callsign, #from-callsign {
+    font-size: 0.75em;
+    padding: 4px;
+    width: 100%; /* Ensure it fills the allocated space */
+
+ }
