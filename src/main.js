@@ -7,7 +7,7 @@ let activePlaybackDeviceId = null;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 850,
+        width: 1260,
         height: 680,
         resize: false,
         backgroundColor: '#1e1e1e',
