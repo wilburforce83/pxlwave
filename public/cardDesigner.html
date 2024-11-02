@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pxlwave Card Designer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.5.0/fabric.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h3 style="color: #f5f5f5;">Card Designer</h3>
+
+    <div>
+        <canvas id="card-canvas" width="256" height="256" style="border: 1px solid #f5f5f5;"></canvas>
+    </div>
+
+    <!-- Tools Panel -->
+    <div style="margin-top: 10px;">
+        <label for="color-picker" style="color: #f5f5f5;">Choose Color:</label>
+        <select id="color-picker">
+            <!-- Custom 32-color palette options -->
+            <option value="#000000">Black</option>
+            <option value="#00021c">Navy Blue</option>
+            <option value="#1c284d">Dark Slate Blue</option>
+            <option value="#343473">Slate Blue</option>
+            <option value="#2d5280">Blue</option>
+            <option value="#4d7a99">Light Blue</option>
+            <option value="#7497a6">Pale Blue</option>
+            <option value="#a3ccd9">Sky Blue</option>
+            <option value="#f0edd8">Ivory</option>
+            <option value="#732866">Dark Magenta</option>
+            <option value="#a6216e">Magenta</option>
+            <option value="#d94c87">Pink</option>
+            <option value="#d9214f">Crimson</option>
+            <option value="#f25565">Coral</option>
+            <option value="#f27961">Salmon</option>
+            <option value="#993649">Maroon</option>
+            <option value="#b36159">Chestnut</option>
+            <option value="#f09c60">Peach</option>
+            <option value="#b38f24">Gold</option>
+            <option value="#b3b324">Yellow</option>
+            <option value="#f7c93e">Light Yellow</option>
+            <option value="#17735f">Dark Teal</option>
+            <option value="#119955">Green</option>
+            <option value="#67b31b">Lime Green</option>
+            <option value="#1ba683">Teal</option>
+            <option value="#47cca9">Aqua</option>
+            <option value="#96e3c9">Light Aqua</option>
+            <option value="#2469b3">Royal Blue</option>
+            <option value="#0b8be6">Bright Blue</option>
+            <option value="#0bafe6">Cyan</option>
+            <option value="#f28d85">Blush</option>
+            <option value="#f0bb90">Light Peach</option>
+        </select>
+
+        <button id="brush-tool">Brush</button>
+        <button id="eraser-tool">Eraser</button>
+        <button id="clear-canvas">Clear</button>
+        <button id="save-button">Save Design</button>
+    </div>
+
+    <script src="cardDesigner.js"></script>
+</body>
+</html>

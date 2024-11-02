@@ -1,43 +1,58 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
+const { ipcRenderer } = require('electron');
+let canvas;
 
-let mainWindow;
-let activeRecordingDeviceId = null;
-let activePlaybackDeviceId = null;
-
-function createWindow() {
-    mainWindow = new BrowserWindow({
-        width: 1260,
-        height: 680,
-        resize: false,
-        backgroundColor: '#1e1e1e',
-        webPreferences: {
-            preload: path.join(__dirname, 'ui.js'),
-            contextIsolation: true,
-        },
+// Initialize Fabric.js Canvas and set up drawing tools
+function initializeCanvas() {
+    canvas = new fabric.Canvas('card-canvas', {
+        backgroundColor: '#ffffff',
     });
 
-    mainWindow.loadFile(path.join(__dirname, '../public/index.html'));
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    // Set default drawing mode and color
+    canvas.isDrawingMode = true;
+    canvas.freeDrawingBrush.color = '#000000';
+    canvas.freeDrawingBrush.width = 5;
 }
 
-// Handle device selection messages
-ipcMain.on('set-recording-device', (event, deviceId) => {
-    activeRecordingDeviceId = deviceId;
-    console.log('Selected recording device:', activeRecordingDeviceId);
-});
+// Send card design data to main process for saving
+function saveCardDesign() {
+    const imageData = canvas.toDataURL({ format: 'png' }).replace(/^data:image\/png;base64,/, '');
+    const metadata = {
+        callsign: document.getElementById('callsign-input').value,
+        version: document.getElementById('version-input').value || 'v1',
+    };
+    ipcRenderer.send('save-card-design', imageData, metadata);
+}
 
-ipcMain.on('set-playback-device', (event, deviceId) => {
-    activePlaybackDeviceId = deviceId;
-    console.log('Selected playback device:', activePlaybackDeviceId);
-});
+// Initialize color picker, brush, and eraser functionality
+document.addEventListener('DOMContentLoaded', () => {
+    initializeCanvas();
 
-app.on('ready', createWindow);
+    // Color Picker
+    const colorPicker = document.getElementById('color-picker');
+    colorPicker.addEventListener('change', (event) => {
+        canvas.freeDrawingBrush.color = event.target.value;
+    });
 
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-});
+    // Brush Tool
+    document.getElementById('brush-tool').addEventListener('click', () => {
+        canvas.isDrawingMode = true;
+        canvas.freeDrawingBrush.color = colorPicker.value;
+        canvas.freeDrawingBrush.width = 5;
+    });
 
-app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    // Eraser Tool
+    document.getElementById('eraser-tool').addEventListener('click', () => {
+        canvas.isDrawingMode = true;
+        canvas.freeDrawingBrush.color = '#ffffff'; // Erase with the canvas background color
+        canvas.freeDrawingBrush.width = 10;
+    });
+
+    // Clear Canvas
+    document.getElementById('clear-canvas').addEventListener('click', () => {
+        canvas.clear();
+        canvas.backgroundColor = '#ffffff';
+    });
+
+    // Save Button
+    document.getElementById('save-button').addEventListener('click', saveCardDesign);
 });
