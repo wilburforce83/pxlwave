@@ -1,3 +1,4 @@
+console.log('ui.js loaded')
 const { ipcRenderer } = require('electron');
 
 let audioContext, analyser, dataArray, waveformCanvas, waveformContext, waterfallCanvas, waterfallContext;
@@ -90,7 +91,7 @@ function addToLog(message, type = 'rx', callsign = '') {
     const timestamp = new Date().toLocaleTimeString();
 
     const logItem = document.createElement('li');
-    logItem.classList.add(type === 'rx' ? 'log-rx' : 'log-tx'); // Apply RX or TX class
+    logItem.classList.add(type === 'rx' ? 'log-rx' : 'log-tx'); // RX for received logs, TX for transmit logs
 
     const timeElem = document.createElement('span');
     timeElem.classList.add('timestamp');
@@ -106,13 +107,17 @@ function addToLog(message, type = 'rx', callsign = '') {
         messageContainer.appendChild(callsignLink);
         messageContainer.append(` - ${message}`);
     } else {
-        messageContainer.textContent = callsign || message;
+        messageContainer.textContent = message;
     }
 
     logItem.appendChild(timeElem);
     logItem.appendChild(messageContainer);
-    log.prepend(logItem);
+
+    log.appendChild(logItem); // Append each log at the bottom
+
+    log.scrollTop = log.scrollHeight; // Auto-scroll to the latest log entry
 }
+
 
 // Log when populating header information
 function populateHeaderInfo(imageType, sender, recipient) {
@@ -190,15 +195,14 @@ async function loadFirstCard() {
     if (savedCards.length > 0) {
         const firstCard = savedCards[0];
         const imageCanvas = document.getElementById('image-preview');
-        const ctx = imageCanvas.getContext('2d');
-        
+
         // Render the first saved card
         renderGridToCanvas(imageCanvas, firstCard.gridData, 128, false); // no grid lines will be drawn
-        
+
         // Store the original grid data
         originalGridData = firstCard.gridData.slice(); // Clone the original color data
         currentGridData = firstCard.gridData; // Store currentGridData for use
-        
+
         // Set the from callsign field
         document.getElementById('from-callsign').value = firstCard.callsign;
     }
@@ -214,12 +218,10 @@ function convertToFourTone(gridData) {
     ];
 
     return gridData.map(colorIndex => {
-        // Assuming we have a way to determine the grayscale equivalent
         const color = colorPalette[colorIndex];
         const rgb = hexToRgb(color);
         const grayValue = Math.round((rgb.r + rgb.g + rgb.b) / 3);
 
-        // Return the index of the closest tone
         if (grayValue < 64) return 0; // Black
         else if (grayValue < 128) return 1; // Dark Gray
         else if (grayValue < 192) return 2; // Light Gray
@@ -227,113 +229,153 @@ function convertToFourTone(gridData) {
     });
 }
 
-// Event listener for the radio buttons
-document.addEventListener('DOMContentLoaded', () => {
+// Consolidate everything into one 'DOMContentLoaded' listener
+document.addEventListener('DOMContentLoaded', async () => {
+    // Set up mode selection for image
     const modeRadios = document.querySelectorAll('input[name="mode"]');
     modeRadios.forEach(radio => {
         radio.addEventListener('change', (event) => {
             if (event.target.value === "4-gray") {
-                // Convert and render the 4-tone image
                 currentGridData = convertToFourTone(originalGridData);
-                renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false); // no grid lines will be drawn
+                renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false);
             } else {
-                // Render the original color image
                 currentGridData = originalGridData;
-                renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false); // no grid lines will be drawn
+                renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false);
             }
         });
     });
 
-    loadAudioDevices(); // Load devices after DOM is fully loaded
-    loadFirstCard(); // Load the first saved card when the application starts
-});
+    // Load audio devices and the first card
+    loadAudioDevices();
+    loadFirstCard();
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // Existing code...
+    // Handle the decode button
+    document.getElementById('decode-button').addEventListener('click', () => {
+        setupAudioVisualization();
+        console.log("Waterfall display started.");
+    });
 
+    // Handle the transmit button
+    document.getElementById('transmit-button').addEventListener('click', async (event) => {
+        event.preventDefault();  // Prevent default form submission behavior
+
+        const fromCallsign = document.getElementById('from-callsign').value;
+        const toCallsign = document.getElementById('to-callsign').value;
+        const mode = document.querySelector('input[name="mode"]:checked').value;
+
+        if (!fromCallsign || !toCallsign) {
+            alert("Both callsigns must be provided!");
+            return;
+        }
+
+        if (currentGridData.length === 0) {
+            alert("No image data available for transmission.");
+            return;
+        }
+
+        // Disable the button to prevent multiple clicks during one transmission
+        const transmitButton = document.getElementById('transmit-button');
+        transmitButton.disabled = true;
+
+        // Send the transmission data via IPC to the main process
+        ipcRenderer.send('start-transmission', currentGridData, fromCallsign, toCallsign, mode);
+
+
+
+
+        // Add transmission log message
+        addToLog(`Transmission booked to ${toCallsign}`, "tx", fromCallsign);
+        console.log("transmit button clicked!")
+
+        // Re-enable the button after a short delay (for demo purposes, adjust as needed)
+        setTimeout(() => {
+            transmitButton.disabled = false;
+        }, 2000);  // Set a delay before allowing the button to be clicked again
+    });
+
+    // Listen for updates from the main process
+    ipcRenderer.on('log-tx', (event, message) => {
+        addToLog(message, 'tx', fromCallsign);  // Log the transmission status
+    });
+
+
+    // Modal handling for selecting a card
     const imagePreview = document.getElementById('image-preview');
     const cardModal = document.getElementById('card-modal');
     const modalContent = document.getElementById('modal-content');
 
-    // Function to load saved cards
-    async function loadSavedCards() {
-        const savedCards = await ipcRenderer.invoke('load-cards');
-        // Render each saved card in the modal
-        modalContent.innerHTML = ''; // Clear previous contents
-        savedCards.forEach((card) => {
-            const cardDiv = document.createElement('div');
-            const canvas = document.createElement('canvas');
-            canvas.width = 128;
-            canvas.height = 128;
-
-            renderGridToCanvas(canvas, card.gridData, 128, false); // Render without grid lines
-
-            cardDiv.classList.add('modal-card');
-            cardDiv.appendChild(canvas);
-            cardDiv.addEventListener('click', () => {
-                renderGridToCanvas(imagePreview, card.gridData, 128, false); // Render selected card
-                document.getElementById('from-callsign').value = card.callsign; // Set the callsign
-                cardModal.style.display = 'none'; // Hide modal after selection
-                // Store the original grid data
-        originalGridData = card.gridData.slice(); // Clone the original color data
-        currentGridData = card.gridData; // Store currentGridData for use
-            });
-            modalContent.appendChild(cardDiv);
-        });
-    }
-
-    // Show modal when the image preview is clicked
     imagePreview.addEventListener('click', () => {
-        cardModal.style.display = 'flex'; // Show modal
-        loadSavedCards(); // Load saved cards into the modal
+        cardModal.style.display = 'flex';
+        loadSavedCards();
     });
 
-    // Close modal when the close button is clicked
     document.getElementById('modal-close').addEventListener('click', () => {
-        cardModal.style.display = 'none'; // Hide modal
+        cardModal.style.display = 'none';
     });
 
-    // Hide modal if clicked outside
     cardModal.addEventListener('click', (event) => {
         if (event.target === cardModal) {
-            cardModal.style.display = 'none'; // Hide modal
+            cardModal.style.display = 'none';
         }
     });
-
-    // Load the first card when the application starts
-    loadFirstCard(); // Assuming this function already exists
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-// Call setupAudioVisualization when the decode button is clicked
-document.getElementById('decode-button').addEventListener('click', () => {
-    setupAudioVisualization();
-    console.log("Waterfall display started.");
-});
 
-document.getElementById('transmit-button').addEventListener('click', async () => {
-    const fromCallsign = document.getElementById('from-callsign').value;
-    const toCallsign = document.getElementById('to-callsign').value;
-    const mode = document.querySelector('input[name="mode"]:checked').value;
 
-    if (!fromCallsign || !toCallsign) {
-        alert("Both callsigns must be provided!");
-        return;
+let txAudioContext;
+let oscillator;
+let gainNode;
+const TONE_DURATION = 50; // ms
+
+// Function to generate tones for the transmission
+async function transmitTone(frequency, duration) {
+    txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    oscillator = txAudioContext.createOscillator();
+    gainNode = txAudioContext.createGain();
+    
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime); // Set frequency
+
+    oscillator.connect(gainNode);
+    gainNode.connect(txAudioContext.destination);
+    
+    oscillator.start();
+    setTimeout(() => {
+        oscillator.stop();
+    }, duration);
+}
+
+// Function to convert image data into tones
+function encodeImageToTones(gridData, palette) {
+    const tones = [];
+    const MIN_TONE_FREQ = 1000;
+    const MAX_TONE_FREQ = 1100;
+    const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ;
+    const toneStep = BANDWIDTH / palette.length; // Calculate step size within the 100Hz bandwidth
+
+    gridData.forEach(colorIndex => {
+        const toneFreq = MIN_TONE_FREQ + (colorIndex * toneStep); // Map color to a tone within the bandwidth
+        tones.push(toneFreq);
+    });
+
+    return tones;
+}
+
+// Function to start transmission from renderer process
+async function startRendererTransmission(gridData, palette) {
+    const tones = encodeImageToTones(gridData, palette);
+    
+    // Transmit each tone
+    for (const tone of tones) {
+        await transmitTone(tone, TONE_DURATION);
     }
 
-    // Ensure grid data (image data) is available
-    if (currentGridData.length === 0) {
-        alert("No image data available for transmission.");
-        return;
-    }
+    console.log('Renderer: Transmission complete.');
+    ipcRenderer.send('log-tx', `Transmission complete. Sent ${tones.length} tones.`);
+}
 
-    // Send the transmission data via IPC to the transmit process
-    ipcRenderer.send('start-transmission', currentGridData, fromCallsign, toCallsign, mode);
-
-    // Add transmission log message
-    addToLog(`Transmission started to ${toCallsign}`, "tx", fromCallsign);
+// Listen for 'start-transmission' event from main process
+ipcRenderer.on('start-transmission-renderer', async (event, gridData, palette) => {
+    console.log('Renderer: Starting transmission');
+    await startRendererTransmission(gridData, palette);
 });
-
-
-});
-
