@@ -3,6 +3,8 @@ const { ipcRenderer } = require('electron');
 let audioContext, analyser, dataArray, waveformCanvas, waveformContext, waterfallCanvas, waterfallContext;
 let waterfallSpeed = 5; // Default waterfall speed
 let amplitudeIntensity = 50; // Default amplitude intensity
+let currentGridData = []; // Current grid data in color
+let originalGridData = []; // Store the original color data
 
 // Setup audio visualization with waterfall and waveform
 async function setupAudioVisualization() {
@@ -182,27 +184,156 @@ async function loadAudioDevices() {
     }
 }
 
-// Event listener for the decode button and sliders
-document.addEventListener("DOMContentLoaded", () => {
-    const decodeButton = document.getElementById('decode-button');
-    if (decodeButton) {
-        decodeButton.addEventListener('click', () => {
-            setupAudioVisualization();
-            console.log("Waterfall display started.");
-            console.log("Decoding started");
-            receiveImageSimulated();
-        });
-    } else {
-        console.error("Decode button not found in DOM");
+// New function to load the first saved card and set callsign
+async function loadFirstCard() {
+    const savedCards = await ipcRenderer.invoke('load-cards');
+    if (savedCards.length > 0) {
+        const firstCard = savedCards[0];
+        const imageCanvas = document.getElementById('image-preview');
+        const ctx = imageCanvas.getContext('2d');
+        
+        // Render the first saved card
+        renderGridToCanvas(imageCanvas, firstCard.gridData, 128, false); // no grid lines will be drawn
+        
+        // Store the original grid data
+        originalGridData = firstCard.gridData.slice(); // Clone the original color data
+        currentGridData = firstCard.gridData; // Store currentGridData for use
+        
+        // Set the from callsign field
+        document.getElementById('from-callsign').value = firstCard.callsign;
     }
+}
 
-    document.getElementById('speed-control').addEventListener('input', (event) => {
-        waterfallSpeed = parseInt(event.target.value, 10);
+// Function to convert color grid data to 4-tone
+function convertToFourTone(gridData) {
+    const fourTonePalette = [
+        "#000000", // Black
+        "#555555", // Dark Gray
+        "#AAAAAA", // Light Gray
+        "#FFFFFF"  // White
+    ];
+
+    return gridData.map(colorIndex => {
+        // Assuming we have a way to determine the grayscale equivalent
+        const color = colorPalette[colorIndex];
+        const rgb = hexToRgb(color);
+        const grayValue = Math.round((rgb.r + rgb.g + rgb.b) / 3);
+
+        // Return the index of the closest tone
+        if (grayValue < 64) return 0; // Black
+        else if (grayValue < 128) return 1; // Dark Gray
+        else if (grayValue < 192) return 2; // Light Gray
+        else return 3; // White
     });
+}
 
-    document.getElementById('amplitude-control').addEventListener('input', (event) => {
-        amplitudeIntensity = parseInt(event.target.value, 10);
+// Event listener for the radio buttons
+document.addEventListener('DOMContentLoaded', () => {
+    const modeRadios = document.querySelectorAll('input[name="mode"]');
+    modeRadios.forEach(radio => {
+        radio.addEventListener('change', (event) => {
+            if (event.target.value === "4-gray") {
+                // Convert and render the 4-tone image
+                currentGridData = convertToFourTone(originalGridData);
+                renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false); // no grid lines will be drawn
+            } else {
+                // Render the original color image
+                currentGridData = originalGridData;
+                renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false); // no grid lines will be drawn
+            }
+        });
     });
 
     loadAudioDevices(); // Load devices after DOM is fully loaded
+    loadFirstCard(); // Load the first saved card when the application starts
 });
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Existing code...
+
+    const imagePreview = document.getElementById('image-preview');
+    const cardModal = document.getElementById('card-modal');
+    const modalContent = document.getElementById('modal-content');
+
+    // Function to load saved cards
+    async function loadSavedCards() {
+        const savedCards = await ipcRenderer.invoke('load-cards');
+        // Render each saved card in the modal
+        modalContent.innerHTML = ''; // Clear previous contents
+        savedCards.forEach((card) => {
+            const cardDiv = document.createElement('div');
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+
+            renderGridToCanvas(canvas, card.gridData, 128, false); // Render without grid lines
+
+            cardDiv.classList.add('modal-card');
+            cardDiv.appendChild(canvas);
+            cardDiv.addEventListener('click', () => {
+                renderGridToCanvas(imagePreview, card.gridData, 128, false); // Render selected card
+                document.getElementById('from-callsign').value = card.callsign; // Set the callsign
+                cardModal.style.display = 'none'; // Hide modal after selection
+                // Store the original grid data
+        originalGridData = card.gridData.slice(); // Clone the original color data
+        currentGridData = card.gridData; // Store currentGridData for use
+            });
+            modalContent.appendChild(cardDiv);
+        });
+    }
+
+    // Show modal when the image preview is clicked
+    imagePreview.addEventListener('click', () => {
+        cardModal.style.display = 'flex'; // Show modal
+        loadSavedCards(); // Load saved cards into the modal
+    });
+
+    // Close modal when the close button is clicked
+    document.getElementById('modal-close').addEventListener('click', () => {
+        cardModal.style.display = 'none'; // Hide modal
+    });
+
+    // Hide modal if clicked outside
+    cardModal.addEventListener('click', (event) => {
+        if (event.target === cardModal) {
+            cardModal.style.display = 'none'; // Hide modal
+        }
+    });
+
+    // Load the first card when the application starts
+    loadFirstCard(); // Assuming this function already exists
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+// Call setupAudioVisualization when the decode button is clicked
+document.getElementById('decode-button').addEventListener('click', () => {
+    setupAudioVisualization();
+    console.log("Waterfall display started.");
+});
+
+document.getElementById('transmit-button').addEventListener('click', async () => {
+    const fromCallsign = document.getElementById('from-callsign').value;
+    const toCallsign = document.getElementById('to-callsign').value;
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+
+    if (!fromCallsign || !toCallsign) {
+        alert("Both callsigns must be provided!");
+        return;
+    }
+
+    // Ensure grid data (image data) is available
+    if (currentGridData.length === 0) {
+        alert("No image data available for transmission.");
+        return;
+    }
+
+    // Send the transmission data via IPC to the transmit process
+    ipcRenderer.send('start-transmission', currentGridData, fromCallsign, toCallsign, mode);
+
+    // Add transmission log message
+    addToLog(`Transmission started to ${toCallsign}`, "tx", fromCallsign);
+});
+
+
+});
+

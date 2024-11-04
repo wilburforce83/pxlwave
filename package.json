@@ -14,7 +14,10 @@
     "electron": "^33.0.2"
   },
   "dependencies": {
+    "electron-store": "^10.0.0",
     "fabric": "^6.4.3",
+    "feather-icons": "^4.29.2",
+    "lowdb": "^7.0.1",
     "uikit": "^3.21.13"
   }
 }

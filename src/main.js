@@ -1,58 +1,138 @@
-const { ipcRenderer } = require('electron');
-let canvas;
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
+const path = require('path');
 
-// Initialize Fabric.js Canvas and set up drawing tools
-function initializeCanvas() {
-    canvas = new fabric.Canvas('card-canvas', {
-        backgroundColor: '#ffffff',
-    });
+let mainWindow;
+let yourCardsWindow;
 
-    // Set default drawing mode and color
-    canvas.isDrawingMode = true;
-    canvas.freeDrawingBrush.color = '#000000';
-    canvas.freeDrawingBrush.width = 5;
+async function setupElectronStore() {
+    const { default: Store } = await import('electron-store');
+    return new Store();
 }
 
-// Send card design data to main process for saving
-function saveCardDesign() {
-    const imageData = canvas.toDataURL({ format: 'png' }).replace(/^data:image\/png;base64,/, '');
-    const metadata = {
-        callsign: document.getElementById('callsign-input').value,
-        version: document.getElementById('version-input').value || 'v1',
-    };
-    ipcRenderer.send('save-card-design', imageData, metadata);
+async function createMainWindow() {
+    const store = await setupElectronStore();
+
+    mainWindow = new BrowserWindow({
+        width: 1260,
+        height: 680,
+        resizable: false,
+        backgroundColor: '#1e1e1e',
+        webPreferences: {
+            preload: path.join(__dirname, 'ui.js'),
+            contextIsolation: false,
+            nodeIntegration: true,
+        },
+    });
+
+    mainWindow.loadFile(path.join(__dirname, '../public/index.html'));
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
 }
 
-// Initialize color picker, brush, and eraser functionality
-document.addEventListener('DOMContentLoaded', () => {
-    initializeCanvas();
-
-    // Color Picker
-    const colorPicker = document.getElementById('color-picker');
-    colorPicker.addEventListener('change', (event) => {
-        canvas.freeDrawingBrush.color = event.target.value;
+async function createYourCardsWindow() {
+    yourCardsWindow = new BrowserWindow({
+        width: 800,
+        height: 800,
+        backgroundColor: '#1e1e1e',
+        parent: mainWindow,
+        resizable: true,
+        modal: true,
+        show: false,
+        webPreferences: {
+            contextIsolation: false,
+            nodeIntegration: true,
+        },
     });
 
-    // Brush Tool
-    document.getElementById('brush-tool').addEventListener('click', () => {
-        canvas.isDrawingMode = true;
-        canvas.freeDrawingBrush.color = colorPicker.value;
-        canvas.freeDrawingBrush.width = 5;
+    yourCardsWindow.loadFile(path.join(__dirname, '../public/yourCards.html'));
+    yourCardsWindow.once('ready-to-show', () => {
+        yourCardsWindow.show();
+        yourCardsWindow.webContents.openDevTools({ mode: 'detach' });
     });
 
-    // Eraser Tool
-    document.getElementById('eraser-tool').addEventListener('click', () => {
-        canvas.isDrawingMode = true;
-        canvas.freeDrawingBrush.color = '#ffffff'; // Erase with the canvas background color
-        canvas.freeDrawingBrush.width = 10;
+    yourCardsWindow.on('closed', () => {
+        yourCardsWindow = null;
     });
+}
 
-    // Clear Canvas
-    document.getElementById('clear-canvas').addEventListener('click', () => {
-        canvas.clear();
-        canvas.backgroundColor = '#ffffff';
-    });
+// Application Menu
+const menuTemplate = [
+    {
+        label: 'File',
+        submenu: [
+            { role: 'quit' },
+        ],
+    },
+    {
+        label: 'View',
+        submenu: [
+            {
+                label: 'Your Cards',
+                click: createYourCardsWindow,
+            },
+        ],
+    },
+];
 
-    // Save Button
-    document.getElementById('save-button').addEventListener('click', saveCardDesign);
+const menu = Menu.buildFromTemplate(menuTemplate);
+Menu.setApplicationMenu(menu);
+
+app.on('ready', createMainWindow);
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
 });
+
+app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+});
+
+// Handle the file selection event
+ipcMain.handle('select-file', async () => {
+    const result = await dialog.showOpenDialog({
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }],
+        properties: ['openFile']
+    });
+
+    if (result.canceled) return null;
+    return result.filePaths[0]; // Return the selected file path
+});
+
+// Handle saving card data
+ipcMain.handle('save-card', async (event, cardData) => {
+    const store = await setupElectronStore();
+    const cards = store.get('cards', []); // Get existing cards or initialize an empty array
+    cards.push(cardData); // Add the new card data
+    store.set('cards', cards); // Save the updated array back to the store
+    return 'Card saved successfully!';
+});
+
+// Handle loading all saved cards
+ipcMain.handle('load-cards', async () => {
+    const store = await setupElectronStore();
+    return store.get('cards') || []; // Return all saved cards from the store
+});
+
+// Handle retrieving card data
+ipcMain.handle('get-cards', async () => {
+    const store = await setupElectronStore();
+    return store.get('cards', []); // Return the list of saved cards
+});
+
+// Handle deleting a card
+ipcMain.handle('delete-card', async (event, cardId) => {
+    const store = await setupElectronStore();
+    const cards = store.get('cards', []); // Get the existing cards
+
+    // Check if the cardId is valid
+    const updatedCards = cards.filter(card => card.id !== cardId); // Only keep cards that do not match the id
+
+    // Only update the store if there was a change
+    if (cards.length !== updatedCards.length) {
+        store.set('cards', updatedCards); // Save the updated list back to the store
+        return { status: 'success', message: 'Card deleted successfully!' };
+    } else {
+        return { status: 'error', message: 'Card not found!' };
+    }
+});
+
+

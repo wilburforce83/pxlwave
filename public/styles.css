@@ -1,8 +1,19 @@
 /* Set base font color and background */
+
+/* styles.css or your main CSS file */
+
+/* Import the Jersey font */
+@font-face {
+    font-family: 'Jersey';
+    src: url('../src/fonts/Jersey.ttf') format('truetype'); /* Adjust the path according to your structure */
+}
+
+/* Set the default font for the entire application */
 body {
     background-color: #1e1e1e;
     color: #f5f5f5;
 }
+  
 
 /* FeatherCSS form elements in dark mode */
 input,
@@ -117,3 +128,81 @@ button {
     width: 100%; /* Ensure it fills the allocated space */
 
  }
+
+ /* Basic styling for tool buttons */
+.tool-button {
+    background-color: #333;
+    color: #f5f5f5;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tool-button:hover {
+    background-color: #444;
+}
+
+/* Color picker boxes */
+.color-box {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #f5f5f5;
+    cursor: pointer;
+}
+
+.color-box:hover {
+    border-color: #fff;
+}
+
+/* Selected color display */
+#current-color {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #f5f5f5;
+}
+
+/* Canvas area */
+canvas {
+    border: 2px solid #f5f5f5;
+}
+
+/* Hide the default radio button */
+.radio input[type="radio"] {
+    display: none;
+}
+
+/* Custom radio button styles */
+.radio {
+    position: relative;
+    padding-left: 25px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #f5f5f5; /* Change color to match your theme */
+}
+
+/* Create a custom checkmark/indicator */
+
+
+/* When the radio is checked, change the background color */
+.radio input[type="radio"]:checked + .checkmark {
+    background-color: #76c7c0; /* Color for checked state */
+}
+
+/* Add an outline to the custom radio button */
+.radio input[type="radio"]:checked + .checkmark:after {
+    content: "";
+    position: absolute;
+    display: block;
+    border-radius: 50%;
+    background: white; /* Inner circle color */
+    width: 10px;
+    height: 10px;
+    top: 5px; /* Center the inner circle */
+    left: 5px;
+}
+
+
+

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Cards</title>
+    <link rel="stylesheet" href="feather.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .col-card {
+            margin: 10px;
+            padding: 10px;
+        }
+        
+        /* Progress Bar Container */
+        .progress-bar {
+            position: relative;
+            width: 100%;
+            height: 20px;
+            background-color: #ccc;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        /* Progress Bar Fill */
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background-color: #76c7c0;
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+
+        /* Progress Bar Text */
+        .progress-bar-text {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #333; /* Dark grey text */
+            font-size: 0.8em;
+            line-height: 20px;
+            text-align: center;
+        }
+
+        .card-content {
+            padding: 10px;
+        }
+
+        /* Image Grid Styles */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 128px);
+            gap: 10px;
+        }
+
+        .image-card {
+            text-align: center;
+        }
+
+        /* Modal Overlay Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+            width: 600px;
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .modal img {
+            width: 512px;
+            height: 512px;
+            border: 1px solid #333;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .modal-arrow {
+            cursor: pointer;
+            font-size: 24px;
+            margin: 0 15px;
+        }
+    </style>
+</head>
+<body class="dark">
+    <div class="container">
+        <h3>Your Cards</h3>
+        <div class="row" style="display: flex; gap: 20px;">
+            <!-- Left Column: File selection, image, callsign, description -->
+            <div class="col-6">
+                <div class="card col-card">
+                    <div class="card-content">
+                        <button id="select-file-button" class="button-primary" style="width: 100%;">Select Image</button>
+                    </div>
+                    <div class="card-content">
+                        <canvas id="image-preview" width="256" height="256" style="border: 1px solid #f5f5f5;"></canvas>
+                        <div class="progress-bar">
+                            <div class="progress-bar-fill" id="progress-bar-fill">
+                                <span id="progress-bar-text" class="progress-bar-text">Converting to pxlwave...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <label for="callsign">Callsign</label>
+                        <input type="text" id="callsign" class="input" placeholder="Enter Callsign">
+                    </div>
+                    <div class="card-content">
+                        <label for="description">Description</label>
+                        <input type="text" id="description" class="input" placeholder="Enter Description">
+                    </div>
+                    <div class="card-content">
+                        <button id="save-button" class="button-primary" style="width: 100%;">Save Design</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Existing Pxlwave images (initially empty) -->
+            <div class="col-6">
+                <div class="card col-card">
+                    <h4>Your Existing Images</h4>
+                    <div id="existing-images" class="image-grid">
+                        <!-- This section will be populated with saved images -->
+                        <p>No images saved yet.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   <!-- Modal for displaying full-size image -->
+<!-- Modal for displaying full-size image -->
+<div id="image-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(50, 50, 50, 0.7); justify-content: center; align-items: center; z-index: 1000;">
+    <div style="background-color: #fff; padding: 20px; border-radius: 10px; text-align: center; position: relative; max-width: 550px;">
+        <button id="modal-close" style="position: absolute; top: 10px; right: 10px;">Close</button>
+        <canvas id="modal-canvas" width="512" height="512" style="border: 1px solid #000;"></canvas>
+        <p id="modal-callsign"></p>
+        <p id="modal-description"></p>
+        <button id="delete-image-button" class="button-danger">Delete</button>
+        <br />
+        <button id="prev-image" class="button-primary">Previous</button>
+        <button id="next-image" class="button-primary">Next</button>
+    </div>
+</div>
+
+
+
+
+<script src="../src/yourCards.js" type="module"></script>
+
+</body>
+</html>
