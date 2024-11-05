@@ -87,11 +87,17 @@ function RX_decodeTone(frequency) {
 function RX_processMicrophoneInput() {
     RX_analyser.getByteFrequencyData(RX_dataArray); // Get frequency data
 
-    // Find the strongest frequency in the received data
+    // Find the strongest frequency in the range 900-1300 Hz
     let maxAmplitude = 0;
     let peakFrequency = 0;
     const nyquist = RX_audioContext.sampleRate / 2; // Nyquist frequency (half of the sampling rate)
-    for (let i = 0; i < RX_bufferLength; i++) {
+    
+    // Calculate the corresponding frequency bin range for 900-1300 Hz
+    const lowBin = Math.floor((900 / nyquist) * RX_bufferLength);
+    const highBin = Math.ceil((1300 / nyquist) * RX_bufferLength);
+
+    // Loop only through bins in the range 900-1300 Hz
+    for (let i = lowBin; i <= highBin; i++) {
         if (RX_dataArray[i] > maxAmplitude) {
             maxAmplitude = RX_dataArray[i];
             peakFrequency = (i / RX_bufferLength) * nyquist;
@@ -99,13 +105,14 @@ function RX_processMicrophoneInput() {
     }
 
     // Log peak frequency for debugging
-    console.log(`Peak frequency detected: ${peakFrequency} Hz with amplitude ${maxAmplitude}`);
-    if (maxAmplitude > RX_toneThreshold) {
+    if (peakFrequency >= 900 && peakFrequency <= 1300 && maxAmplitude > RX_toneThreshold) {
+      //  console.log(`Strongest frequency detected in range 900-1300 Hz: ${peakFrequency} Hz with amplitude ${maxAmplitude}`);
         RX_detectTone(peakFrequency); // Pass peak frequency to tone detection
     }
 
     requestAnimationFrame(RX_processMicrophoneInput); // Continue processing in real-time
 }
+
 
 // Function to detect and process incoming tones
 function RX_detectTone(frequency) {
@@ -135,7 +142,7 @@ async function RX_startMicrophoneStream() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         RX_microphoneStream = RX_audioContext.createMediaStreamSource(stream);
         RX_analyser = RX_audioContext.createAnalyser();
-        RX_analyser.fftSize = 2048; // Set FFT size for frequency analysis
+        RX_analyser.fftSize = 8192; // Set FFT size for frequency analysis
         RX_bufferLength = RX_analyser.frequencyBinCount;
         RX_dataArray = new Uint8Array(RX_bufferLength);
 

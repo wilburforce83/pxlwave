@@ -14,12 +14,12 @@ const rxTag = document.getElementById('rx-tag');
 
 
 
-// Setup audio visualization with waterfall and waveform
+/// Setup audio visualization with waterfall and waveform
 async function setupAudioVisualization() {
     try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
+        analyser.fftSize = 8192; // Increased FFT size for better resolution
         dataArray = new Uint8Array(analyser.frequencyBinCount);
 
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -27,18 +27,46 @@ async function setupAudioVisualization() {
         });
         const source = audioContext.createMediaStreamSource(stream);
         source.connect(analyser);
-
-        waveformCanvas = document.getElementById('waveform');
-        waveformContext = waveformCanvas.getContext('2d');
         waterfallCanvas = document.getElementById('waterfall');
         waterfallContext = waterfallCanvas.getContext('2d');
 
-        drawWaveform();
+
         drawWaterfall();
     } catch (error) {
         console.error("Error setting up audio visualization:", error);
     }
 }
+
+// Draw the waterfall showing only the 900-1300Hz range with better resolution
+function drawWaterfall() {
+    setTimeout(() => requestAnimationFrame(drawWaterfall), 100 / waterfallSpeed);
+    analyser.getByteFrequencyData(dataArray);
+
+    // Draw previous waterfall image, shifted down by one pixel
+    waterfallContext.drawImage(waterfallCanvas, 0, 1);
+
+    // Calculate the range of frequency bins that correspond to 900-1300 Hz
+    const nyquist = audioContext.sampleRate / 2; // Nyquist frequency (half the sample rate)
+    const lowBin = Math.floor((600 / nyquist) * analyser.frequencyBinCount);
+    const highBin = Math.ceil((1800 / nyquist) * analyser.frequencyBinCount);
+    
+    // Number of bins between 900-1300 Hz
+    const numBins = highBin - lowBin + 1;
+    const barWidth = waterfallCanvas.width / numBins; // Full canvas width mapped to the selected range
+
+    // Draw the bars for the frequency range 900-1300 Hz
+    for (let i = lowBin; i <= highBin; i++) {
+        const value = dataArray[i];
+        const percent = value / 255; // Normalize the amplitude
+        const hue = Math.round((1 - percent) * 240); // Map amplitude to color hue
+        const brightness = (percent * amplitudeIntensity) + (100 - amplitudeIntensity);
+        
+        const x = (i - lowBin) * barWidth; // Calculate x-position for the current bin
+        waterfallContext.fillStyle = `hsl(${hue}, 100%, ${brightness}%)`;
+        waterfallContext.fillRect(x, 0, barWidth, 1); // Draw the frequency bar
+    }
+}
+
 
 // Transmit button click handler with countdown and TX tag
 document.getElementById('transmit-button').addEventListener('click', async (event) => {
@@ -62,53 +90,6 @@ document.getElementById('transmit-button').addEventListener('click', async (even
     scheduleTransmission(currentGridData, fromCallsign, toCallsign, mode);
 });
 
-// Draw the audio waveform
-function drawWaveform() {
-    requestAnimationFrame(drawWaveform);
-    const waveformArray = new Uint8Array(analyser.fftSize);
-    analyser.getByteTimeDomainData(waveformArray);
-
-    waveformContext.clearRect(0, 0, waveformCanvas.width, waveformCanvas.height);
-    waveformContext.beginPath();
-    waveformContext.lineWidth = 2;
-    waveformContext.strokeStyle = '#32cd32';
-
-    const sliceWidth = waveformCanvas.width / waveformArray.length;
-    let x = 0;
-
-    for (let i = 0; i < waveformArray.length; i++) {
-        const v = waveformArray[i] / 128.0;
-        const y = (v * waveformCanvas.height) / 2;
-
-        if (i === 0) {
-            waveformContext.moveTo(x, y);
-        } else {
-            waveformContext.lineTo(x, y);
-        }
-
-        x += sliceWidth;
-    }
-
-    waveformContext.lineTo(waveformCanvas.width, waveformCanvas.height / 2);
-    waveformContext.stroke();
-}
-
-// Draw the waterfall
-function drawWaterfall() {
-    setTimeout(() => requestAnimationFrame(drawWaterfall), 100 / waterfallSpeed);
-    analyser.getByteFrequencyData(dataArray);
-    waterfallContext.drawImage(waterfallCanvas, 0, 1);
-
-    const barWidth = waterfallCanvas.width / dataArray.length;
-    for (let i = 0; i < dataArray.length; i++) {
-        const value = dataArray[i];
-        const percent = value / 255;
-        const hue = Math.round((1 - percent) * 240);
-        const brightness = (percent * amplitudeIntensity) + (100 - amplitudeIntensity);
-        waterfallContext.fillStyle = `hsl(${hue}, 100%, ${brightness}%)`;
-        waterfallContext.fillRect(i * barWidth, 0, barWidth, 1);
-    }
-}
 
 // Add log entries to the log area
 function addToLog(message, type = 'rx', callsign = '') {
