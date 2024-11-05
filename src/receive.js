@@ -5,8 +5,8 @@ let RX_headerReceived = false;
 let RX_gridData = new Array(1024).fill(0);
 let RX_headerData = {};
 let RX_currentPixel = 0;
-const RX_startTime = +4;  // Start at +4 seconds
-const RX_endTime = +15;   // Timeout if no calibration tone detected by +15 seconds
+const RX_startTime = 4;  // Start at +4 seconds
+const RX_endTime = 15;   // Timeout if no calibration tone detected by +15 seconds
 
 // Constants for RX tone processing
 const RX_MIN_TONE_FREQ = 1000;  // Hz
@@ -71,7 +71,7 @@ function RX_renderImage(gridData) {
 
 // Function to decode FSK tones into characters/colors based on the calibration offset
 function RX_decodeTone(frequency) {
-    const adjustedFreq = frequency - RX_calibrationOffset;
+    const adjustedFreq = frequency // - RX_calibrationOffset;
     console.log(`Decoding tone at frequency: ${frequency} Hz (adjusted to: ${adjustedFreq} Hz)`);  // Log the detected frequency
     for (const [freq, char] of Object.entries(RX_CHAR_FREQ_MAP)) {
         if (Math.abs(adjustedFreq - freq) <= 2.5) { // Allow a small margin for error
@@ -87,7 +87,7 @@ function RX_decodeTone(frequency) {
 function RX_processMicrophoneInput() {
     RX_analyser.getByteFrequencyData(RX_dataArray); // Get frequency data
 
-    // Find the peak frequency in the received data
+    // Find the strongest frequency in the received data
     let maxAmplitude = 0;
     let peakFrequency = 0;
     const nyquist = RX_audioContext.sampleRate / 2; // Nyquist frequency (half of the sampling rate)

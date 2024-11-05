@@ -23,26 +23,26 @@ let oscillator = null;
 let gainNode = null;
 let countdownInterval = null;
 
-// Function to generate tones for the transmission
-async function transmitTone(frequency, duration) {
-    toggleTxTag(true);
-    console.log(`Transmitting tone at ${frequency} Hz`);
-
+// Function to initialize and start the continuous audio stream
+function initOscillator() {
+    txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
     oscillator = txAudioContext.createOscillator();
     gainNode = txAudioContext.createGain();
 
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime); // Set frequency
+    oscillator.frequency.setValueAtTime(CALIBRATION_TONE_MIN, txAudioContext.currentTime); // Set the initial frequency
     oscillator.connect(gainNode);
     gainNode.connect(txAudioContext.destination);
+    gainNode.gain.setValueAtTime(1, txAudioContext.currentTime); // Set gain (volume)
 
-    oscillator.start();
+    oscillator.start(); // Start the oscillator, but don't stop it after each tone
+}
 
-    // Use oscillator.stop to ensure it stops after the specified duration
-    await new Promise(resolve => setTimeout(() => {
-        oscillator.stop();
-        resolve(); // Continue after stopping the oscillator
-    }, duration));
+// Function to change the oscillator frequency to the specified tone for the given duration
+async function changeTone(frequency, duration) {
+    console.log(`Changing tone to ${frequency} Hz for ${duration}ms`);
+    oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime); // Modulate the frequency
+    await new Promise(resolve => setTimeout(resolve, duration)); // Wait for the duration
 }
 
 // Function to toggle the TX tag
@@ -60,44 +60,45 @@ async function transmitHeader(senderCallsign, recipientCallsign, mode) {
     for (const char of headerString) {
         const frequency = CHAR_FREQ_MAP[char];
         if (frequency) {
-            await transmitTone(frequency, HEADER_TONE_DURATION);
+            await changeTone(frequency, HEADER_TONE_DURATION);
         } else {
             console.error(`No frequency mapping for character: ${char}`);
         }
     }
 
     // Transmit an additional calibration tone after the header
-    await transmitTone(CALIBRATION_TONE_MAX, 500);
+    await changeTone(CALIBRATION_TONE_MAX, 500);
     console.log('Header and calibration tone transmitted.');
 }
 
 // Main transmission function
 async function startTransmission(gridData, senderCallsign, recipientCallsign, mode) {
-    console.log('Creating audio context for transmission');
-    txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    console.log('Starting continuous audio stream for transmission');
+    initOscillator(); // Start the continuous audio stream
 
     console.log(`Header: ${senderCallsign} ${recipientCallsign} ${mode}`);
 
     // Transmit calibration tones before the header
-    await transmitTone(CALIBRATION_TONE_MIN, 500);
-    await transmitTone(CALIBRATION_TONE_MAX, 500);
+    await changeTone(CALIBRATION_TONE_MIN, 500);
+    await changeTone(CALIBRATION_TONE_MAX, 500);
 
     // Transmit encoded header data
     await transmitHeader(senderCallsign, recipientCallsign, mode);
 
     // Assuming a 32-color palette, map each color in gridData to a tone
-    const tones = gridData.map(colorIndex => MIN_TONE_FREQ + (colorIndex * (BANDWIDTH / 32))); 
+    const tones = gridData.map(colorIndex => MIN_TONE_FREQ + (colorIndex * (BANDWIDTH / 32)));
 
     console.log(`Transmitting ${tones.length} tones for image data`);
 
     // Transmit each tone
     for (const [index, tone] of tones.entries()) {
         console.log(`Transmitting tone ${index + 1} of ${tones.length}`);
-        await transmitTone(tone, TONE_DURATION); // Transmit each tone for 50 milliseconds
+        await changeTone(tone, TONE_DURATION); // Change tone without stopping the oscillator
     }
 
     toggleTxTag(false);
     console.log('Transmission complete.');
+    oscillator.stop(); // Stop the continuous oscillator after transmission is complete
 }
 
 // Countdown logic that calculates the time remaining until the next +7 seconds
