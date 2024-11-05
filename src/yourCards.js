@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ctx = canvas.getContext('2d');
         const pixelSize = targetSize / 32; // Calculate pixel size based on target canvas size (128 or 512)
         ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas before rendering
-
+console.log(gridData,colorPalette);
         // Render each pixel color
         for (let i = 0; i < 32; i++) {
             for (let j = 0; j < 32; j++) {

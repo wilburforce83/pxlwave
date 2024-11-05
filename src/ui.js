@@ -1,11 +1,18 @@
-console.log('ui.js loaded')
+console.log('ui.js loaded');
 const { ipcRenderer } = require('electron');
-
 let audioContext, analyser, dataArray, waveformCanvas, waveformContext, waterfallCanvas, waterfallContext;
-let waterfallSpeed = 5; // Default waterfall speed
-let amplitudeIntensity = 50; // Default amplitude intensity
-let currentGridData = []; // Current grid data in color
-let originalGridData = []; // Store the original color data
+let waterfallSpeed = 5;
+let amplitudeIntensity = 50;
+let currentGridData = [];
+let originalGridData = [];
+
+// Elements for TX and RX tags
+const txTag = document.getElementById('tx-tag');
+const rxTag = document.getElementById('rx-tag');
+
+
+
+
 
 // Setup audio visualization with waterfall and waveform
 async function setupAudioVisualization() {
@@ -33,10 +40,31 @@ async function setupAudioVisualization() {
     }
 }
 
+// Transmit button click handler with countdown and TX tag
+document.getElementById('transmit-button').addEventListener('click', async (event) => {
+    event.preventDefault();
+
+    const fromCallsign = document.getElementById('from-callsign').value;
+    const toCallsign = document.getElementById('to-callsign').value;
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+
+    if (!fromCallsign || !toCallsign) {
+        alert("Both callsigns must be provided!");
+        return;
+    }
+
+    if (currentGridData.length === 0) {
+        alert("No image data available for transmission.");
+        return;
+    }
+
+    // Schedule transmission for the next +7 second mark
+    scheduleTransmission(currentGridData, fromCallsign, toCallsign, mode);
+});
+
 // Draw the audio waveform
 function drawWaveform() {
     requestAnimationFrame(drawWaveform);
-
     const waveformArray = new Uint8Array(analyser.fftSize);
     analyser.getByteTimeDomainData(waveformArray);
 
@@ -67,36 +95,30 @@ function drawWaveform() {
 
 // Draw the waterfall
 function drawWaterfall() {
-    setTimeout(() => requestAnimationFrame(drawWaterfall), 100 / waterfallSpeed); // Control speed
-
+    setTimeout(() => requestAnimationFrame(drawWaterfall), 100 / waterfallSpeed);
     analyser.getByteFrequencyData(dataArray);
-
     waterfallContext.drawImage(waterfallCanvas, 0, 1);
 
     const barWidth = waterfallCanvas.width / dataArray.length;
-
     for (let i = 0; i < dataArray.length; i++) {
         const value = dataArray[i];
         const percent = value / 255;
         const hue = Math.round((1 - percent) * 240);
-        const brightness = (percent * amplitudeIntensity) + (100 - amplitudeIntensity); // Adjust brightness with slider
-
+        const brightness = (percent * amplitudeIntensity) + (100 - amplitudeIntensity);
         waterfallContext.fillStyle = `hsl(${hue}, 100%, ${brightness}%)`;
         waterfallContext.fillRect(i * barWidth, 0, barWidth, 1);
     }
 }
 
+// Add log entries to the log area
 function addToLog(message, type = 'rx', callsign = '') {
     const log = document.getElementById('log');
     const timestamp = new Date().toLocaleTimeString();
-
     const logItem = document.createElement('li');
-    logItem.classList.add(type === 'rx' ? 'log-rx' : 'log-tx'); // RX for received logs, TX for transmit logs
-
+    logItem.classList.add(type === 'rx' ? 'log-rx' : 'log-tx');
     const timeElem = document.createElement('span');
     timeElem.classList.add('timestamp');
     timeElem.textContent = `[${timestamp}] `;
-
     const messageContainer = document.createElement('span');
     if (callsign && callsign.length > 3) {
         const callsignLink = document.createElement('a');
@@ -109,44 +131,10 @@ function addToLog(message, type = 'rx', callsign = '') {
     } else {
         messageContainer.textContent = message;
     }
-
     logItem.appendChild(timeElem);
     logItem.appendChild(messageContainer);
-
-    log.appendChild(logItem); // Append each log at the bottom
-
-    log.scrollTop = log.scrollHeight; // Auto-scroll to the latest log entry
-}
-
-
-// Log when populating header information
-function populateHeaderInfo(imageType, sender, recipient) {
-    document.getElementById('image-type').textContent = imageType;
-    document.getElementById('sender-callsign').textContent = sender;
-    document.getElementById('recipient-callsign').textContent = recipient;
-    addToLog(`Image type: ${imageType}`, "rx", sender);
-}
-
-// Simulate receiving an image and logging details
-function receiveImageSimulated() {
-    const exampleImage = '../public/assets/example.png';
-    const imageType = "16 Colors";
-    const sender = "CALL123";
-    const recipient = "M7WDS";
-
-    populateHeaderInfo(imageType, sender, recipient);
-    displayImage(exampleImage);
-    addToLog(`Image decoded`, "rx", sender);
-}
-
-function displayImage(imageSrc) {
-    const receivedImage = document.getElementById('received-image');
-    if (receivedImage) {
-        receivedImage.src = imageSrc;
-        receivedImage.style.display = 'block';
-    } else {
-        console.error("Received image element not found in DOM.");
-    }
+    log.appendChild(logItem);
+    log.scrollTop = log.scrollHeight;
 }
 
 // Load available audio devices into dropdowns
@@ -184,54 +172,42 @@ async function loadAudioDevices() {
             ipcRenderer.send('set-playback-device', playbackSelect.value);
         });
 
+        setupAudioVisualization();
+        console.log("Waterfall display started automatically.");
     } catch (error) {
         console.error('Error loading audio devices:', error);
     }
 }
 
-// New function to load the first saved card and set callsign
+// Function to load the first saved card and set callsign
 async function loadFirstCard() {
     const savedCards = await ipcRenderer.invoke('load-cards');
     if (savedCards.length > 0) {
         const firstCard = savedCards[0];
         const imageCanvas = document.getElementById('image-preview');
-
-        // Render the first saved card
-        renderGridToCanvas(imageCanvas, firstCard.gridData, 128, false); // no grid lines will be drawn
-
-        // Store the original grid data
-        originalGridData = firstCard.gridData.slice(); // Clone the original color data
-        currentGridData = firstCard.gridData; // Store currentGridData for use
-
-        // Set the from callsign field
+        renderGridToCanvas(imageCanvas, firstCard.gridData, 128, false);
+        originalGridData = firstCard.gridData.slice();
+        currentGridData = firstCard.gridData;
         document.getElementById('from-callsign').value = firstCard.callsign;
     }
 }
 
-// Function to convert color grid data to 4-tone
-function convertToFourTone(gridData) {
-    const fourTonePalette = [
-        "#000000", // Black
-        "#555555", // Dark Gray
-        "#AAAAAA", // Light Gray
-        "#FFFFFF"  // White
-    ];
-
-    return gridData.map(colorIndex => {
-        const color = colorPalette[colorIndex];
-        const rgb = hexToRgb(color);
-        const grayValue = Math.round((rgb.r + rgb.g + rgb.b) / 3);
-
-        if (grayValue < 64) return 0; // Black
-        else if (grayValue < 128) return 1; // Dark Gray
-        else if (grayValue < 192) return 2; // Light Gray
-        else return 3; // White
-    });
+// Display live UTC time in the footer
+function displayUtcTime() {
+    const utcTimeElement = document.getElementById('utc-time');
+    setInterval(() => {
+        const now = new Date();
+        const utcTime = now.toUTCString().split(' ')[4]; // Get HH:MM:SS part
+        utcTimeElement.textContent = `UTC Time: ${utcTime}`;
+    }, 1000);
 }
 
-// Consolidate everything into one 'DOMContentLoaded' listener
+// Initialize after DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
-    // Set up mode selection for image
+    displayUtcTime(); // Show UTC time
+    loadAudioDevices(); // Load the audio devices
+    loadFirstCard(); // Load the first saved card
+
     const modeRadios = document.querySelectorAll('input[name="mode"]');
     modeRadios.forEach(radio => {
         radio.addEventListener('change', (event) => {
@@ -245,137 +221,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Load audio devices and the first card
-    loadAudioDevices();
-    loadFirstCard();
-
-    // Handle the decode button
-    document.getElementById('decode-button').addEventListener('click', () => {
-        setupAudioVisualization();
-        console.log("Waterfall display started.");
-    });
-
-    // Handle the transmit button
-    document.getElementById('transmit-button').addEventListener('click', async (event) => {
-        event.preventDefault();  // Prevent default form submission behavior
-
-        const fromCallsign = document.getElementById('from-callsign').value;
-        const toCallsign = document.getElementById('to-callsign').value;
-        const mode = document.querySelector('input[name="mode"]:checked').value;
-
-        if (!fromCallsign || !toCallsign) {
-            alert("Both callsigns must be provided!");
-            return;
-        }
-
-        if (currentGridData.length === 0) {
-            alert("No image data available for transmission.");
-            return;
-        }
-
-        // Disable the button to prevent multiple clicks during one transmission
-        const transmitButton = document.getElementById('transmit-button');
-        transmitButton.disabled = true;
-
-        // Send the transmission data via IPC to the main process
-        ipcRenderer.send('start-transmission', currentGridData, fromCallsign, toCallsign, mode);
-
-
-
-
-        // Add transmission log message
-        addToLog(`Transmission booked to ${toCallsign}`, "tx", fromCallsign);
-        console.log("transmit button clicked!")
-
-        // Re-enable the button after a short delay (for demo purposes, adjust as needed)
-        setTimeout(() => {
-            transmitButton.disabled = false;
-        }, 2000);  // Set a delay before allowing the button to be clicked again
-    });
-
-    // Listen for updates from the main process
-    ipcRenderer.on('log-tx', (event, message) => {
-        addToLog(message, 'tx', fromCallsign);  // Log the transmission status
-    });
-
-
-    // Modal handling for selecting a card
-    const imagePreview = document.getElementById('image-preview');
-    const cardModal = document.getElementById('card-modal');
-    const modalContent = document.getElementById('modal-content');
-
-    imagePreview.addEventListener('click', () => {
-        cardModal.style.display = 'flex';
-        loadSavedCards();
-    });
-
-    document.getElementById('modal-close').addEventListener('click', () => {
-        cardModal.style.display = 'none';
-    });
-
-    cardModal.addEventListener('click', (event) => {
-        if (event.target === cardModal) {
-            cardModal.style.display = 'none';
-        }
-    });
-});
-
-
-
-let txAudioContext;
-let oscillator;
-let gainNode;
-const TONE_DURATION = 50; // ms
-
-// Function to generate tones for the transmission
-async function transmitTone(frequency, duration) {
-    txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    oscillator = txAudioContext.createOscillator();
-    gainNode = txAudioContext.createGain();
-    
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime); // Set frequency
-
-    oscillator.connect(gainNode);
-    gainNode.connect(txAudioContext.destination);
-    
-    oscillator.start();
+    // Hide the splash screen once the app is ready
+    const splashScreen = document.getElementById('splash-screen');
     setTimeout(() => {
-        oscillator.stop();
-    }, duration);
-}
-
-// Function to convert image data into tones
-function encodeImageToTones(gridData, palette) {
-    const tones = [];
-    const MIN_TONE_FREQ = 1000;
-    const MAX_TONE_FREQ = 1100;
-    const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ;
-    const toneStep = BANDWIDTH / palette.length; // Calculate step size within the 100Hz bandwidth
-
-    gridData.forEach(colorIndex => {
-        const toneFreq = MIN_TONE_FREQ + (colorIndex * toneStep); // Map color to a tone within the bandwidth
-        tones.push(toneFreq);
-    });
-
-    return tones;
-}
-
-// Function to start transmission from renderer process
-async function startRendererTransmission(gridData, palette) {
-    const tones = encodeImageToTones(gridData, palette);
-    
-    // Transmit each tone
-    for (const tone of tones) {
-        await transmitTone(tone, TONE_DURATION);
-    }
-
-    console.log('Renderer: Transmission complete.');
-    ipcRenderer.send('log-tx', `Transmission complete. Sent ${tones.length} tones.`);
-}
-
-// Listen for 'start-transmission' event from main process
-ipcRenderer.on('start-transmission-renderer', async (event, gridData, palette) => {
-    console.log('Renderer: Starting transmission');
-    await startRendererTransmission(gridData, palette);
+        splashScreen.style.display = 'none'; // Hide the splash screen
+    }, 5000);
 });

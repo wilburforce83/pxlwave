@@ -16,11 +16,10 @@ async function createMainWindow() {
 
     mainWindow = new BrowserWindow({
         width: 1260,
-        height: 680,
+        height: 740,
         resizable: false,
         backgroundColor: '#1e1e1e',
         webPreferences: {
-            // preload: path.join(__dirname, 'ui.js'),
             contextIsolation: false,
             nodeIntegration: true,
         },
@@ -77,7 +76,6 @@ async function createYourCardsWindow() {
         yourCardsWindow = null;
     });
 }
-
 
 // Application Menu
 const menuTemplate = [
@@ -160,42 +158,55 @@ ipcMain.handle('delete-card', async (event, cardId) => {
     }
 });
 
-// Request permission for microphone access
-systemPreferences.askForMediaAccess('microphone').then(granted => {
-    if (granted) {
-        console.log('Microphone access granted');
+// COLLECTION HANDLERS
+
+// Handle loading all received images (collection)
+ipcMain.handle('load-collection', async () => {
+    const store = await setupElectronStore();
+    return store.get('collection') || []; // Return all received images
+});
+
+// Handle saving a received image to the collection
+ipcMain.handle('save-to-collection', async (event, receivedData) => {
+    const store = await setupElectronStore();
+    const collection = store.get('collection', []); // Get existing collection
+    receivedData.id = new Date().getTime(); // Generate a unique ID based on timestamp
+    collection.push(receivedData); // Add the new received image
+    store.set('collection', collection); // Save the updated collection
+    return { status: 'success', message: 'Image saved successfully!' };
+});
+
+// Handle deleting an image from the collection
+ipcMain.handle('delete-from-collection', async (event, imageId) => {
+    const store = await setupElectronStore();
+    const collection = store.get('collection', []); // Get the existing collection
+
+    const updatedCollection = collection.filter(image => image.id !== imageId); // Only keep images that do not match the id
+
+    // Only update the store if there was a change
+    if (collection.length !== updatedCollection.length) {
+        store.set('collection', updatedCollection); // Save the updated list back to the store
+        return { status: 'success', message: 'Image deleted successfully!' };
     } else {
-        console.log('Microphone access denied');
+        return { status: 'error', message: 'Image not found!' };
     }
 });
 
-// Optionally, request permission for camera access if needed
-systemPreferences.askForMediaAccess('camera').then(granted => {
-    if (granted) {
-        console.log('Camera access granted');
-    } else {
-        console.log('Camera access denied');
-    }
-});
+// Check if the operating system is macOS
+if (process.platform === 'darwin') {
+    systemPreferences.askForMediaAccess('microphone').then(granted => {
+        if (granted) {
+            console.log('Microphone access granted');
+        } else {
+            console.log('Microphone access denied');
+        }
+    });
 
-const { waitForUTCStart, startTransmission } = require('./transmit'); // Import the functions from transmit.js
-
-// Listen for transmission requests from the renderer process
-ipcMain.on('start-transmission', async (event, gridData, senderCallsign, recipientCallsign, mode) => {
-    console.log('Transmission request received in main process');
-
-    try {
-        // Wait for UTC 7th second of the next minute
-        await waitForUTCStart();
-        console.log('Main: Starting transmission at UTC 7th second.');
-
-        // Trigger transmission on the renderer process
-        mainWindow.webContents.send('start-transmission-renderer', gridData, palette);  // Send data to renderer to begin transmission
-    } catch (error) {
-        console.error('Main: Transmission failed:', error);
-        event.sender.send('log-tx', `Error during transmission: ${error.message}`);
-    }
-});
-
-
-
+    systemPreferences.askForMediaAccess('camera').then(granted => {
+        if (granted) {
+            console.log('Camera access granted');
+        } else {
+            console.log('Camera access denied');
+        }
+    });
+}

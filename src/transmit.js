@@ -1,5 +1,3 @@
-const { ipcMain } = require('electron');
-
 console.log('transmit.js loaded');
 
 // Constants for tone frequency and timing
@@ -9,108 +7,125 @@ const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ; // 100Hz bandwidth
 const TONE_DURATION = 50; // 50 milliseconds per tone
 const CALIBRATION_TONE_MIN = 950; // Hz, slightly below the min tone for calibration
 const CALIBRATION_TONE_MAX = 1150; // Hz, slightly above the max tone for calibration
+const HEADER_TONE_DURATION = 100; // 100 milliseconds for header tones
+
+// Frequency map for encoding header (A-Z, 0-9, and '-')
+const CHAR_FREQ_MAP = {
+    'A': 1000, 'B': 1005, 'C': 1010, 'D': 1015, 'E': 1020, 'F': 1025, 'G': 1030, 'H': 1035,
+    'I': 1040, 'J': 1045, 'K': 1050, 'L': 1055, 'M': 1060, 'N': 1065, 'O': 1070, 'P': 1075,
+    'Q': 1080, 'R': 1085, 'S': 1090, 'T': 1095, 'U': 1100, 'V': 1105, 'W': 1110, 'X': 1115,
+    'Y': 1120, 'Z': 1125, '0': 1130, '1': 1135, '2': 1140, '3': 1145, '4': 1150, '5': 1155,
+    '6': 1160, '7': 1165, '8': 1170, '9': 1175, '-': 1180
+};
 
 let txAudioContext = null;
 let oscillator = null;
 let gainNode = null;
-
-// Header size in bits (64 bits)
-const HEADER_SIZE = 64;
-
-// Function to encode the transmission header
-function encodeHeader(senderCallsign, recipientCallsign, mode) {
-    const headerBinary = callsignToBinary(senderCallsign) + callsignToBinary(recipientCallsign) + modeToBinary(mode);
-    return headerBinary.padEnd(HEADER_SIZE, '0'); // Pad to 64 bits
-}
-
-// Function to convert callsign to binary
-function callsignToBinary(callsign) {
-    return callsign.split('').map(char => char.charCodeAt(0).toString(2).padStart(8, '0')).join('');
-}
-
-// Function to convert mode ('color' or '4-gray') to binary
-function modeToBinary(mode) {
-    return mode === 'color' ? '01' : '10'; // Use 01 for color and 10 for grayscale mode
-}
+let countdownInterval = null;
 
 // Function to generate tones for the transmission
 async function transmitTone(frequency, duration) {
+    toggleTxTag(true);
     console.log(`Transmitting tone at ${frequency} Hz`);
+
     oscillator = txAudioContext.createOscillator();
     gainNode = txAudioContext.createGain();
+
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime); // Set frequency
-
     oscillator.connect(gainNode);
     gainNode.connect(txAudioContext.destination);
-    
+
     oscillator.start();
-    setTimeout(() => {
+
+    // Use oscillator.stop to ensure it stops after the specified duration
+    await new Promise(resolve => setTimeout(() => {
         oscillator.stop();
-    }, duration);
+        resolve(); // Continue after stopping the oscillator
+    }, duration));
 }
 
-// Function to convert image data into tones
-function encodeImageToTones(gridData, palette) {
-    const tones = [];
-    const toneStep = BANDWIDTH / palette.length; // Calculate step size within the 100Hz bandwidth
+// Function to toggle the TX tag
+function toggleTxTag(active) {
+    txTag.classList.toggle('tag-inactive', !active);
+    txTag.classList.toggle('tag-tx', active);
+}
 
-    gridData.forEach(colorIndex => {
-        const toneFreq = MIN_TONE_FREQ + (colorIndex * toneStep); // Map color to a tone within the bandwidth
-        tones.push(toneFreq);
-    });
+// Function to encode header data (senderCallsign, recipientCallsign, mode)
+async function transmitHeader(senderCallsign, recipientCallsign, mode) {
+    const headerString = `${senderCallsign}-${recipientCallsign}-${mode}`;
+    console.log(`Encoding and transmitting header: ${headerString}`);
 
-    return tones;
+    // Convert each character in the header to its corresponding frequency
+    for (const char of headerString) {
+        const frequency = CHAR_FREQ_MAP[char];
+        if (frequency) {
+            await transmitTone(frequency, HEADER_TONE_DURATION);
+        } else {
+            console.error(`No frequency mapping for character: ${char}`);
+        }
+    }
+
+    // Transmit an additional calibration tone after the header
+    await transmitTone(CALIBRATION_TONE_MAX, 500);
+    console.log('Header and calibration tone transmitted.');
 }
 
 // Main transmission function
-async function startTransmission(gridData, senderCallsign, recipientCallsign, mode, event) {
+async function startTransmission(gridData, senderCallsign, recipientCallsign, mode) {
     console.log('Creating audio context for transmission');
-    // Create audio context
-    txAudioContext = new (AudioContext || webkitAudioContext)();
+    txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-    const headerBinary = encodeHeader(senderCallsign, recipientCallsign, mode);
-    console.log(`Header: ${headerBinary}`);
+    console.log(`Header: ${senderCallsign} ${recipientCallsign} ${mode}`);
 
-    // Transmit calibration tones
-    await transmitCalibrationTone(CALIBRATION_TONE_MIN, 500); // Transmit min calibration tone (500ms)
-    await transmitCalibrationTone(CALIBRATION_TONE_MAX, 500); // Transmit max calibration tone (500ms)
+    // Transmit calibration tones before the header
+    await transmitTone(CALIBRATION_TONE_MIN, 500);
+    await transmitTone(CALIBRATION_TONE_MAX, 500);
 
-    // Encode image data into tones
-    const tones = encodeImageToTones(gridData, palette);
+    // Transmit encoded header data
+    await transmitHeader(senderCallsign, recipientCallsign, mode);
+
+    // Assuming a 32-color palette, map each color in gridData to a tone
+    const tones = gridData.map(colorIndex => MIN_TONE_FREQ + (colorIndex * (BANDWIDTH / 32))); 
+
+    console.log(`Transmitting ${tones.length} tones for image data`);
 
     // Transmit each tone
-    for (const tone of tones) {
-        await transmitTone(tone, TONE_DURATION);
+    for (const [index, tone] of tones.entries()) {
+        console.log(`Transmitting tone ${index + 1} of ${tones.length}`);
+        await transmitTone(tone, TONE_DURATION); // Transmit each tone for 50 milliseconds
     }
 
-    // Log transmission completion
-    event.sender.send('log-tx', `Transmission complete. Sent ${tones.length} tones.`);
+    toggleTxTag(false);
+    console.log('Transmission complete.');
 }
 
-// Function to transmit calibration tones
-async function transmitCalibrationTone(frequency, duration) {
-    console.log(`Transmitting calibration tone: ${frequency} Hz`);
-    await transmitTone(frequency, duration);
-}
-
-// Function to wait until the 7th second of the next UTC minute
-async function waitForUTCStart() {
+// Countdown logic that calculates the time remaining until the next +7 seconds
+function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode) {
+    const transmitButton = document.getElementById('transmit-button');
     const now = new Date();
-    
-    let msToNextMinute = (60 - now.getUTCSeconds()) * 1000 - now.getUTCMilliseconds();
-    console.log(`Waiting for transmission window:`, msToNextMinute);
-    
-    if (msToNextMinute < 0) {
-        msToNextMinute = 0; // Prevent negative values due to timing differences
-    }
+    const nextMinute = new Date(now.getTime() + (60000 - now.getSeconds() * 1000)); // Start of the next minute
+    nextMinute.setSeconds(7); // Schedule at +7 seconds
 
-    const msToStart = msToNextMinute + 7000; // Calculate delay to the 7th second of the next minute
-   
-    return new Promise(resolve => setTimeout(resolve, msToStart));
+    const timeUntilTransmit = nextMinute.getTime() - now.getTime(); // Milliseconds until +7 seconds
+    let countdown = Math.ceil(timeUntilTransmit / 1000);
+
+    // Update button text with countdown
+    countdownInterval = setInterval(() => {
+        transmitButton.textContent = `Transmit (${countdown}s)`;
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            transmitButton.textContent = 'Transmit';
+            startTransmission(gridData, senderCallsign, recipientCallsign, mode);
+        }
+        countdown--;
+    }, 1000);
+
+    addToLog(`Transmission booked to ${recipientCallsign}, waiting for next minute...`, "tx", senderCallsign);
 }
 
+// Export the startTransmission and scheduleTransmission functions
 module.exports = {
-    waitForUTCStart,
     startTransmission,
+    scheduleTransmission,
 };

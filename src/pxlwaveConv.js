@@ -25,7 +25,7 @@ function convertToGridData(img) {
         const colorIndex = getClosestColorIndex(r, g, b);
         gridData.push(colorIndex);
     }
-
+console.log(gridData,colorPalette);
     return gridData;
 }
 
