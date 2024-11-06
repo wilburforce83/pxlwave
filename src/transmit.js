@@ -4,7 +4,7 @@ console.log('transmit.js loaded');
 const MIN_TONE_FREQ = 1000; // Hz
 const MAX_TONE_FREQ = 1100; // Hz
 const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ; // 100Hz bandwidth
-const TONE_DURATION = 50; // 50 milliseconds per tone
+const TONE_DURATION = 150; // 50 milliseconds per tone
 const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
 const CALIBRATION_TONE_MAX = 1150; // Hz, calibration tone end
 const HEADER_TONE_DURATION = 100; // 100 milliseconds for header tones
@@ -15,7 +15,7 @@ const CHAR_FREQ_MAP = {
     'I': 1040, 'J': 1045, 'K': 1050, 'L': 1055, 'M': 1060, 'N': 1065, 'O': 1070, 'P': 1075,
     'Q': 1080, 'R': 1085, 'S': 1090, 'T': 1095, 'U': 1100, 'V': 1105, 'W': 1110, 'X': 1115,
     'Y': 1120, 'Z': 1125, '0': 1130, '1': 1135, '2': 1140, '3': 1145, '4': 1150, '5': 1155,
-    '6': 1160, '7': 1165, '8': 1170, '9': 1175, '-': 1180
+    '6': 1160, '7': 1165, '8': 1170, '9': 1175, '-': 1180, ' ': 1185
 };
 
 let txAudioContext = null;
@@ -53,7 +53,7 @@ function toggleTxTag(active) {
 
 // Function to encode and transmit header data (callsigns and mode)
 async function transmitHeader(senderCallsign, recipientCallsign, mode) {
-    const headerString = `${senderCallsign}-${recipientCallsign}-${mode}`;
+    const headerString = `${senderCallsign}-${recipientCallsign}-${mode}`.padEnd(15, ' ');
     console.log(`Encoding and transmitting header: ${headerString}`);
 
     for (const char of headerString) {
@@ -86,11 +86,15 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     await transmitHeader(senderCallsign, recipientCallsign, mode);
 
     // Map each color in gridData to a tone and transmit
-    const tones = gridData.map(colorIndex => MIN_TONE_FREQ + (colorIndex * (BANDWIDTH / 32)));
+    let modeVal = 32;
+    if (mode === "4T") {
+        modeVal = 4;
+    }
+    const tones = gridData.map(colorIndex => MIN_TONE_FREQ + (colorIndex * (BANDWIDTH / modeVal)));
     console.log(`Transmitting ${tones.length} tones for image data`);
 
     for (const [index, tone] of tones.entries()) {
-       // console.log(`Transmitting tone ${index + 1} of ${tones.length}`);
+        // console.log(`Transmitting tone ${index + 1} of ${tones.length}`);
         await changeTone(tone, TONE_DURATION); // Change tone without stopping oscillator
     }
 
