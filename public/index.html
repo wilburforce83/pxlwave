@@ -33,9 +33,9 @@
         bottom: 0;
         width: 100%;
         text-align: center;
-        background-color: #1e1e1e;
+        background-color: #101d0e;
         padding: 8px;
-        color: #fff;
+        color: #00a108;
         font-size: 0.85em;
         z-index: 999;
     }
@@ -56,9 +56,23 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background-color: #1e1e1e;
-        z-index: 2000; /* Higher than modal */
+        background-color: #101d0e;
+        z-index: 2000; 
+        opacity: 1;
+        transition: opacity 0.5s ease; /* Adjust the duration as needed *//* Higher than modal */
     }
+
+    #pxlwave-hello {
+        width: 100%;
+        height: 100%;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;   
+    }
+    #splash-screen.fade-out {
+    opacity: 0;
+}
 
     /* Prevent scrolling when splash screen is active */
     body.no-scroll {
@@ -74,13 +88,14 @@
  <div style="margin-top: 10px; width: 256px;">
      <div style="height: 16px; background-color: #333;">
          <div id="progress-bar" style="height: 100%; width: 0%; background-color: #4caf50;"></div>
+         <h3 id="pxlwave-hello" style="color: #f5f5f5;">Welcome to pxlwave!</h3>
      </div>
  </div>
 </div>
 
 <!-- Modal for selecting saved cards -->
 <div id="card-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); justify-content: center; align-items: center; z-index: 1000;">
-    <div style="background-color: #444; padding: 20px; border-radius: 10px; text-align: center; max-width: 600px; width: 90%;">
+    <div style="background-color: #101d0e; padding: 20px; border-radius: 10px; text-align: center; max-width: 600px; width: 90%;">
         <h3 style="color: #f5f5f5;">Select a Card</h3>
         <div id="modal-content" style="display: flex; flex-wrap: wrap; justify-content: center; max-height: 300px; overflow-y: auto;">
             <!-- Cards will be rendered here -->
@@ -89,9 +104,7 @@
     </div>
 </div>
 
-<div class="container" style="display: flex; justify-content: center;">
-    <h3 style="font-size: 0.8em; padding: 5px; color: #f5f5f5; text-align: left;">Pxlwave</h3>
-</div>
+
 
 <div class="container" style="display: flex; justify-content: center;">
    <!-- Main Content Area for TX, RX, and Log -->
@@ -102,7 +115,7 @@
                <h3 style="font-size: 1.1em; margin-bottom: 8px; color: #f5f5f5;">Transmit (TX)
                    <span id="tx-tag" class="tag tag-inactive">TX</span>
                </h3>
-               <div id="image-grid" class="image-grid card" style="padding: 15px; min-height: 80px; background-color: #333; color: #bbb; display: flex; justify-content: center; align-items: center;">
+               <div id="image-grid" class="image-grid card" style="padding: 15px; min-height: 80px; background-color: #101d0e; color: #bbb; display: flex; justify-content: center; align-items: center;">
                    <canvas id="image-preview" width="128" height="128" style="border: 1px solid #f5f5f5;"></canvas>
                </div>
                <form style="margin-top: 8px;">
@@ -171,7 +184,7 @@
                    </div>
 
                    <!-- RX Display Column -->
-                   <canvas id="rx-display" width="128" height="128" style="background-color: #2d2d2d; border: 1px solid #f5f5f5;"></canvas>
+                   <canvas id="rx-display" width="128" height="128" style="background-color: #162b13; border: 1px solid #f5f5f573;"></canvas>
                </div>
 
                <!-- Waterfall Display Canvas -->
@@ -188,7 +201,7 @@
        <div class="col-4" style="font-size: 0.85em; width: 400px;">
            <div class="card" style="padding: 10px; min-height: 550px;">
                <h3 style="font-size: 1.1em; margin-bottom: 8px; color: #f5f5f5;">Log</h3>
-               <div style="height: 450px; overflow-y: auto; background-color: #1e1e1e; margin-top: 10px; padding: 10px;">
+               <div style="height: 450px; overflow-y: auto; background-color: #101d0e; margin-top: 10px; padding: 10px;">
                    <ul id="log" class="list">
                        <!-- Log entries will appear here -->
                    </ul>

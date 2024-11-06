@@ -10,8 +10,13 @@
 
 /* Set the default font for the entire application */
 body {
-    background-color: #1e1e1e;
+    background-color: #101d0e;
     color: #f5f5f5;
+    padding: 10px;
+}
+
+body, * {
+    font-family: monospace;
 }
   
 
@@ -30,9 +35,12 @@ button {
 }
 
 .card {
-    background-color: #2d2d2d;
+    background-color: #2d2d2d00;
     border: 1px solid #444;
     color: #f5f5f5;
+}
+.col-4 {
+    padding:5px;
 }
 
 /* Drop zone styling */
@@ -166,7 +174,7 @@ button {
 
 /* Canvas area */
 canvas {
-    border: 2px solid #f5f5f5;
+    border: 1px solid #f5f5f573;
 }
 
 /* Hide the default radio button */
@@ -188,7 +196,7 @@ canvas {
 
 /* When the radio is checked, change the background color */
 .radio input[type="radio"]:checked + .checkmark {
-    background-color: #76c7c0; /* Color for checked state */
+    background-color: #32cd32; /* Color for checked state */
 }
 
 /* Add an outline to the custom radio button */
@@ -197,12 +205,82 @@ canvas {
     position: absolute;
     display: block;
     border-radius: 50%;
-    background: white; /* Inner circle color */
+    background: #32cd32; /* Inner circle color */
     width: 10px;
     height: 10px;
     top: 5px; /* Center the inner circle */
     left: 5px;
 }
+
+/* Global scrollbar styles for WebKit-based browsers (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+    width: 5px;
+}
+
+*::-webkit-scrollbar-track {
+    background-color: #252525;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: #333333;
+    border-radius: 2.5px;
+}
+
+*::-webkit-scrollbar-button {
+    display: none; /* Removes top and bottom arrows */
+}
+
+/* Global scrollbar styles for Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #333333 #252525;
+}
+
+
+/* Global style for all range sliders */
+input[type="range"] {
+    -webkit-appearance: none; /* Remove default styling */
+    width: 100%; /* Full width by default */
+    height: 5px; /* Track height */
+    background-color: #252525; /* Track color */
+    outline: none; /* Remove focus outline */
+    border-radius: 5px; /* Rounded track ends */
+    opacity: 0.8;
+}
+
+/* Track styling */
+input[type="range"]::-webkit-slider-runnable-track {
+    background-color: #252525;
+    height: 5px;
+    border-radius: 5px;
+}
+
+input[type="range"]::-moz-range-track {
+    background-color: #252525;
+    height: 5px;
+    border-radius: 5px;
+}
+
+/* Thumb styling */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; /* Remove default thumb styling */
+    appearance: none;
+    width: 12px; /* Thumb width */
+    height: 12px; /* Thumb height */
+    background-color: #32cd32; /* Thumb color */
+    border-radius: 50%; /* Round thumb */
+    cursor: pointer;
+    margin-top: -3.5px; /* Centers thumb on track */
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background-color: #333333;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
 
 
 

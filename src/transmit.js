@@ -5,8 +5,8 @@ const MIN_TONE_FREQ = 1000; // Hz
 const MAX_TONE_FREQ = 1100; // Hz
 const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ; // 100Hz bandwidth
 const TONE_DURATION = 50; // 50 milliseconds per tone
-const CALIBRATION_TONE_MIN = 950; // Hz, slightly below the min tone for calibration
-const CALIBRATION_TONE_MAX = 1150; // Hz, slightly above the max tone for calibration
+const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
+const CALIBRATION_TONE_MAX = 1150; // Hz, calibration tone end
 const HEADER_TONE_DURATION = 100; // 100 milliseconds for header tones
 
 // Frequency map for encoding header (A-Z, 0-9, and '-')
@@ -30,19 +30,19 @@ function initOscillator() {
     gainNode = txAudioContext.createGain();
 
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(CALIBRATION_TONE_MIN, txAudioContext.currentTime); // Set the initial frequency
+    oscillator.frequency.setValueAtTime(CALIBRATION_TONE_MIN, txAudioContext.currentTime); // Initial frequency
     oscillator.connect(gainNode);
     gainNode.connect(txAudioContext.destination);
-    gainNode.gain.setValueAtTime(1, txAudioContext.currentTime); // Set gain (volume)
+    gainNode.gain.setValueAtTime(1, txAudioContext.currentTime); // Set volume
 
-    oscillator.start(); // Start the oscillator, but don't stop it after each tone
+    oscillator.start(); // Start the continuous oscillator
 }
 
-// Function to change the oscillator frequency to the specified tone for the given duration
+// Function to change the oscillator frequency for the specified tone duration
 async function changeTone(frequency, duration) {
     console.log(`Changing tone to ${frequency} Hz for ${duration}ms`);
-    oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime); // Modulate the frequency
-    await new Promise(resolve => setTimeout(resolve, duration)); // Wait for the duration
+    oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime); // Change frequency
+    await new Promise(resolve => setTimeout(resolve, duration)); // Wait for duration
 }
 
 // Function to toggle the TX tag
@@ -51,12 +51,11 @@ function toggleTxTag(active) {
     txTag.classList.toggle('tag-tx', active);
 }
 
-// Function to encode header data (senderCallsign, recipientCallsign, mode)
+// Function to encode and transmit header data (callsigns and mode)
 async function transmitHeader(senderCallsign, recipientCallsign, mode) {
     const headerString = `${senderCallsign}-${recipientCallsign}-${mode}`;
     console.log(`Encoding and transmitting header: ${headerString}`);
 
-    // Convert each character in the header to its corresponding frequency
     for (const char of headerString) {
         const frequency = CHAR_FREQ_MAP[char];
         if (frequency) {
@@ -66,17 +65,18 @@ async function transmitHeader(senderCallsign, recipientCallsign, mode) {
         }
     }
 
-    // Transmit an additional calibration tone after the header
+    // End header with an additional calibration tone
     await changeTone(CALIBRATION_TONE_MAX, 500);
     console.log('Header and calibration tone transmitted.');
 }
 
-// Main transmission function
+// Main transmission function for image data
 async function startTransmission(gridData, senderCallsign, recipientCallsign, mode) {
+    toggleTxTag(true);
     console.log('Starting continuous audio stream for transmission');
-    initOscillator(); // Start the continuous audio stream
+    initOscillator(); // Initialize the continuous audio stream
 
-    console.log(`Header: ${senderCallsign} ${recipientCallsign} ${mode}`);
+    console.log(`Transmitting header: ${senderCallsign} ${recipientCallsign} ${mode}`);
 
     // Transmit calibration tones before the header
     await changeTone(CALIBRATION_TONE_MIN, 500);
@@ -85,30 +85,28 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     // Transmit encoded header data
     await transmitHeader(senderCallsign, recipientCallsign, mode);
 
-    // Assuming a 32-color palette, map each color in gridData to a tone
+    // Map each color in gridData to a tone and transmit
     const tones = gridData.map(colorIndex => MIN_TONE_FREQ + (colorIndex * (BANDWIDTH / 32)));
-
     console.log(`Transmitting ${tones.length} tones for image data`);
 
-    // Transmit each tone
     for (const [index, tone] of tones.entries()) {
-        console.log(`Transmitting tone ${index + 1} of ${tones.length}`);
-        await changeTone(tone, TONE_DURATION); // Change tone without stopping the oscillator
+       // console.log(`Transmitting tone ${index + 1} of ${tones.length}`);
+        await changeTone(tone, TONE_DURATION); // Change tone without stopping oscillator
     }
 
     toggleTxTag(false);
     console.log('Transmission complete.');
-    oscillator.stop(); // Stop the continuous oscillator after transmission is complete
+    oscillator.stop(); // Stop the oscillator after transmission is complete
 }
 
-// Countdown logic that calculates the time remaining until the next +7 seconds
+// Countdown logic to schedule transmission
 function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode) {
     const transmitButton = document.getElementById('transmit-button');
     const now = new Date();
-    const nextMinute = new Date(now.getTime() + (60000 - now.getSeconds() * 1000)); // Start of the next minute
+    const nextMinute = new Date(now.getTime() + (60000 - now.getSeconds() * 1000)); // Start of next minute
     nextMinute.setSeconds(7); // Schedule at +7 seconds
 
-    const timeUntilTransmit = nextMinute.getTime() - now.getTime(); // Milliseconds until +7 seconds
+    const timeUntilTransmit = nextMinute.getTime() - now.getTime();
     let countdown = Math.ceil(timeUntilTransmit / 1000);
 
     // Update button text with countdown
@@ -122,7 +120,7 @@ function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode)
         countdown--;
     }, 1000);
 
-    addToLog(`Transmission booked to ${recipientCallsign}, waiting for next minute...`, "tx", senderCallsign);
+    addToLog(`Transmission scheduled for ${recipientCallsign}. Waiting for next minute...`, "tx", senderCallsign);
 }
 
 // Export the startTransmission and scheduleTransmission functions

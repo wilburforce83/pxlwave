@@ -62,6 +62,7 @@ const gridData = [
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 ];
 
@@ -77,7 +78,10 @@ function renderImageProgressively(canvas, gridData) {
     let pixelIndex = 0;
     function renderNextPixel() {
         if (pixelIndex >= gridData.length) {
-            hideSplashScreen()
+            const welcome = document.getElementById('pxlwave-hello');
+            welcome.style.display = 'flex';
+          setTimeout(hideSplashScreen,2000);
+    
             return; // All pixels have been rendered
         }
 
@@ -108,7 +112,15 @@ renderImageProgressively(canvas, gridData);
 
 // Hide splash screen after rendering completion
 function hideSplashScreen() {
-    const splashScreen = document.getElementById('splash-screen');
+    // Select the splash screen element
+const splashScreen = document.getElementById('splash-screen');
+
+// Add the fade-out class to start the transition
+splashScreen.classList.add('fade-out');
+
+// Set a timeout to hide the splash screen after the transition finishes
+setTimeout(() => {
     splashScreen.style.display = 'none';
+}, 500); // Match this duration to the transition duration in CSS (0.5s here)
 }
 

@@ -41,7 +41,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             gallery.innerHTML = '<p>No images saved yet.</p>';
             return;
         }
-
+        let firstCard = savedCards[0];
+        document.getElementById('callsign').value = firstCard.callsign;
         savedCards.forEach((card, index) => {
             const cardDiv = document.createElement('div');
             const canvas = document.createElement('canvas');
@@ -93,7 +94,7 @@ console.log(gridData,colorPalette);
 
     // Usage for modal images (512x512)
     function renderModalImage(canvas, gridData) {
-        renderGridToCanvas(canvas, gridData, 512); // Render with 512x512 canvas size
+        renderGridToCanvas(canvas, gridData, 256); // Render with 512x512 canvas size
     }
 
     // Function to open modal with full-size image and navigation

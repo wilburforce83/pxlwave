@@ -15,8 +15,8 @@ async function createMainWindow() {
     const store = await setupElectronStore();
 
     mainWindow = new BrowserWindow({
-        width: 1260,
-        height: 740,
+        width: 1240,
+        height: 660,
         resizable: false,
         backgroundColor: '#1e1e1e',
         webPreferences: {
@@ -31,11 +31,11 @@ async function createMainWindow() {
 
 async function createYourCardsWindow() {
     yourCardsWindow = new BrowserWindow({
-        width: 800,
-        height: 800,
+        width: 770,
+        height: 625,
         backgroundColor: '#1e1e1e',
         parent: mainWindow,
-        resizable: true,
+        resizable: false,
         modal: false,
         show: false,
         webPreferences: {

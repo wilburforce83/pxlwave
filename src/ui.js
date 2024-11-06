@@ -1,8 +1,8 @@
 console.log('ui.js loaded');
 const { ipcRenderer } = require('electron');
 let audioContext, analyser, dataArray, waveformCanvas, waveformContext, waterfallCanvas, waterfallContext;
-let waterfallSpeed = 5;
-let amplitudeIntensity = 50;
+let waterfallSpeed = 2;
+let amplitudeIntensity = 70;
 let currentGridData = [];
 let originalGridData = [];
 
@@ -10,11 +10,7 @@ let originalGridData = [];
 const txTag = document.getElementById('tx-tag');
 const rxTag = document.getElementById('rx-tag');
 
-
-
-
-
-/// Setup audio visualization with waterfall and waveform
+// Setup audio visualization with waterfall and waveform
 async function setupAudioVisualization() {
     try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -27,14 +23,33 @@ async function setupAudioVisualization() {
         });
         const source = audioContext.createMediaStreamSource(stream);
         source.connect(analyser);
+
         waterfallCanvas = document.getElementById('waterfall');
         waterfallContext = waterfallCanvas.getContext('2d');
 
+        // Set up the slider controls
+        setupControlSliders();
 
+        // Start the waterfall display
         drawWaterfall();
     } catch (error) {
         console.error("Error setting up audio visualization:", error);
     }
+}
+
+// Function to set up event listeners for waterfall controls
+function setupControlSliders() {
+    // Waterfall speed control
+    const speedControl = document.getElementById('speed-control');
+    speedControl.addEventListener('input', (event) => {
+        waterfallSpeed = parseInt(event.target.value);
+    });
+
+    // Amplitude color mapping control
+    const amplitudeControl = document.getElementById('amplitude-control');
+    amplitudeControl.addEventListener('input', (event) => {
+        amplitudeIntensity = parseInt(event.target.value);
+    });
 }
 
 // Draw the waterfall showing only the 900-1300Hz range with better resolution
@@ -46,27 +61,26 @@ function drawWaterfall() {
     waterfallContext.drawImage(waterfallCanvas, 0, 1);
 
     // Calculate the range of frequency bins that correspond to 900-1300 Hz
-    const nyquist = audioContext.sampleRate / 2; // Nyquist frequency (half the sample rate)
-    const lowBin = Math.floor((600 / nyquist) * analyser.frequencyBinCount);
-    const highBin = Math.ceil((1800 / nyquist) * analyser.frequencyBinCount);
-    
-    // Number of bins between 900-1300 Hz
+    const nyquist = audioContext.sampleRate / 2;
+    const lowBin = Math.floor((900 / nyquist) * analyser.frequencyBinCount);
+    const highBin = Math.ceil((1300 / nyquist) * analyser.frequencyBinCount);
+
+    // Number of bins in the selected range
     const numBins = highBin - lowBin + 1;
-    const barWidth = waterfallCanvas.width / numBins; // Full canvas width mapped to the selected range
+    const barWidth = waterfallCanvas.width / numBins;
 
     // Draw the bars for the frequency range 900-1300 Hz
     for (let i = lowBin; i <= highBin; i++) {
         const value = dataArray[i];
-        const percent = value / 255; // Normalize the amplitude
-        const hue = Math.round((1 - percent) * 240); // Map amplitude to color hue
+        const percent = value / 255;
+        const hue = Math.round((1 - percent) * 240); // Hue mapping
         const brightness = (percent * amplitudeIntensity) + (100 - amplitudeIntensity);
-        
-        const x = (i - lowBin) * barWidth; // Calculate x-position for the current bin
+
+        const x = (i - lowBin) * barWidth;
         waterfallContext.fillStyle = `hsl(${hue}, 100%, ${brightness}%)`;
-        waterfallContext.fillRect(x, 0, barWidth, 1); // Draw the frequency bar
+        waterfallContext.fillRect(x, 0, barWidth, 1);
     }
 }
-
 
 // Transmit button click handler with countdown and TX tag
 document.getElementById('transmit-button').addEventListener('click', async (event) => {
@@ -90,16 +104,17 @@ document.getElementById('transmit-button').addEventListener('click', async (even
     scheduleTransmission(currentGridData, fromCallsign, toCallsign, mode);
 });
 
-
-// Add log entries to the log area
+// Add log entries to the log area, with new entries at the top
 function addToLog(message, type = 'rx', callsign = '') {
     const log = document.getElementById('log');
     const timestamp = new Date().toLocaleTimeString();
     const logItem = document.createElement('li');
     logItem.classList.add(type === 'rx' ? 'log-rx' : 'log-tx');
+    
     const timeElem = document.createElement('span');
     timeElem.classList.add('timestamp');
     timeElem.textContent = `[${timestamp}] `;
+
     const messageContainer = document.createElement('span');
     if (callsign && callsign.length > 3) {
         const callsignLink = document.createElement('a');
@@ -112,10 +127,12 @@ function addToLog(message, type = 'rx', callsign = '') {
     } else {
         messageContainer.textContent = message;
     }
+
     logItem.appendChild(timeElem);
     logItem.appendChild(messageContainer);
-    log.appendChild(logItem);
-    log.scrollTop = log.scrollHeight;
+
+    // Insert the new log item at the top of the log
+    log.insertBefore(logItem, log.firstChild);
 }
 
 // Load available audio devices into dropdowns
@@ -178,7 +195,7 @@ function displayUtcTime() {
     const utcTimeElement = document.getElementById('utc-time');
     setInterval(() => {
         const now = new Date();
-        const utcTime = now.toUTCString().split(' ')[4]; // Get HH:MM:SS part
+        const utcTime = now.toUTCString().split(' ')[4];
         utcTimeElement.textContent = `UTC Time: ${utcTime}`;
     }, 1000);
 }
@@ -192,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const modeRadios = document.querySelectorAll('input[name="mode"]');
     modeRadios.forEach(radio => {
         radio.addEventListener('change', (event) => {
-            if (event.target.value === "4-gray") {
+            if (event.target.value === "4T") {
                 currentGridData = convertToFourTone(originalGridData);
                 renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false);
             } else {
@@ -201,10 +218,4 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     });
-
-    // Hide the splash screen once the app is ready
-    const splashScreen = document.getElementById('splash-screen');
-    setTimeout(() => {
-        splashScreen.style.display = 'none'; // Hide the splash screen
-    }, 5000);
 });
