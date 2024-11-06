@@ -2,7 +2,7 @@ console.log('ui.js loaded');
 const { ipcRenderer } = require('electron');
 let audioContext, analyser, dataArray, waveformCanvas, waveformContext, waterfallCanvas, waterfallContext;
 let waterfallSpeed = 2;
-let amplitudeIntensity = 70;
+let amplitudeIntensity = 100;
 let currentGridData = [];
 let originalGridData = [];
 
@@ -52,7 +52,6 @@ function setupControlSliders() {
     });
 }
 
-// Draw the waterfall showing only the 900-1300Hz range with better resolution
 function drawWaterfall() {
     setTimeout(() => requestAnimationFrame(drawWaterfall), 100 / waterfallSpeed);
     analyser.getByteFrequencyData(dataArray);
@@ -73,14 +72,18 @@ function drawWaterfall() {
     for (let i = lowBin; i <= highBin; i++) {
         const value = dataArray[i];
         const percent = value / 255;
-        const hue = Math.round((1 - percent) * 240); // Hue mapping
-        const brightness = (percent * amplitudeIntensity) + (100 - amplitudeIntensity);
+        
+        // Use a constant hue for green (120), adjust brightness and saturation
+        const hue = 120;
+        const saturation = 100;
+        const brightness = (percent * amplitudeIntensity * 0.5) + (100 - amplitudeIntensity);
 
         const x = (i - lowBin) * barWidth;
-        waterfallContext.fillStyle = `hsl(${hue}, 100%, ${brightness}%)`;
+        waterfallContext.fillStyle = `hsl(${hue}, ${saturation}%, ${brightness}%)`;
         waterfallContext.fillRect(x, 0, barWidth, 1);
     }
 }
+
 
 // Transmit button click handler with countdown and TX tag
 document.getElementById('transmit-button').addEventListener('click', async (event) => {

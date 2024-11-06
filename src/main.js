@@ -18,6 +18,7 @@ async function createMainWindow() {
         width: 1240,
         height: 660,
         resizable: false,
+        icon: path.join(__dirname, 'icons/app-icon.png'), // For Linux or generic setup
         backgroundColor: '#1e1e1e',
         webPreferences: {
             contextIsolation: false,
