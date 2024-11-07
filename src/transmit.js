@@ -7,7 +7,7 @@ const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ; // 100Hz bandwidth
 const TONE_DURATION = 150; // 50 milliseconds per tone
 const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
 const CALIBRATION_TONE_MAX = 1150; // Hz, calibration tone end
-const HEADER_TONE_DURATION = 100; // 100 milliseconds for header tones
+const HEADER_TONE_DURATION = 150; // 100 milliseconds for header tones
 
 // Frequency map for encoding header (A-Z, 0-9, and '-')
 const CHAR_FREQ_MAP = {
@@ -103,18 +103,29 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     oscillator.stop(); // Stop the oscillator after transmission is complete
 }
 
-// Countdown logic to schedule transmission
+// Countdown logic to schedule transmission on every 3rd minute +7 seconds from a fixed epoch
 function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode) {
     const transmitButton = document.getElementById('transmit-button');
     const now = new Date();
-    const nextMinute = new Date(now.getTime() + (60000 - now.getSeconds() * 1000)); // Start of next minute
-    nextMinute.setSeconds(7); // Schedule at +7 seconds
+    const epoch = new Date('1970-01-01T00:00:00Z'); // Fixed epoch start
 
-    const timeUntilTransmit = nextMinute.getTime() - now.getTime();
+    // Calculate the time since the epoch in milliseconds
+    const timeSinceEpoch = now.getTime() - epoch.getTime();
+
+    // Calculate how many milliseconds are in a 3-minute interval
+    const intervalMs = 3 * 60 * 1000;
+
+    // Calculate the next 3-minute interval after the epoch
+    const nextInterval = new Date(epoch.getTime() + Math.ceil(timeSinceEpoch / intervalMs) * intervalMs);
+    nextInterval.setUTCSeconds(7); // Set seconds to +7 as required
+    nextInterval.setUTCMilliseconds(0);
+
+    // Calculate the remaining time until the next interval
+    const timeUntilTransmit = nextInterval.getTime() - now.getTime();
     let countdown = Math.ceil(timeUntilTransmit / 1000);
 
     // Update button text with countdown
-    countdownInterval = setInterval(() => {
+    const countdownInterval = setInterval(() => {
         transmitButton.textContent = `Transmit (${countdown}s)`;
         if (countdown <= 0) {
             clearInterval(countdownInterval);
@@ -124,8 +135,9 @@ function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode)
         countdown--;
     }, 1000);
 
-    addToLog(`Transmission scheduled for ${recipientCallsign}. Waiting for next minute...`, "tx", senderCallsign);
+    addToLog(`Transmission scheduled for ${recipientCallsign}. Waiting for synchronized 3rd minute interval...`, "tx", senderCallsign);
 }
+
 
 // Export the startTransmission and scheduleTransmission functions
 module.exports = {

@@ -38,6 +38,7 @@ async function createYourCardsWindow() {
         parent: mainWindow,
         resizable: false,
         modal: false,
+        icon: path.join(__dirname, 'icons/app-icon.png'), // For Linux or generic setup
         show: false,
         webPreferences: {
             contextIsolation: false,
@@ -48,7 +49,7 @@ async function createYourCardsWindow() {
     yourCardsWindow.loadFile(path.join(__dirname, '../public/yourCards.html'));
     yourCardsWindow.once('ready-to-show', () => {
         yourCardsWindow.show();
-        yourCardsWindow.webContents.openDevTools({ mode: 'detach' });
+      //  yourCardsWindow.webContents.openDevTools({ mode: 'detach' });
     });
 
     // Add a menu only if not on Windows
@@ -87,7 +88,7 @@ const menuTemplate = [
         ],
     },
     {
-        label: 'View',
+        label: 'Manage',
         submenu: [
             {
                 label: 'Your Cards',

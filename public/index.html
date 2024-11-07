@@ -27,6 +27,16 @@
         background-color: #ff9800;
     }
 
+    .countdowntag { 
+        display: inline-block;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font-size: 0.75em;
+        background-color: #555;
+        color: #aaa; 
+        margin-left: 8px;
+    }
+
     /* Sticky footer */
     .sticky-footer {
         position: fixed;
@@ -94,7 +104,7 @@
 </div>
 
 <!-- Modal for selecting saved cards -->
-<div id="card-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); justify-content: center; align-items: center; z-index: 1000;">
+<div id="card-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(14, 20, 10, 0.8); justify-content: center; align-items: center; z-index: 1000;">
     <div style="background-color: #101d0e; padding: 20px; border-radius: 10px; text-align: center; max-width: 600px; width: 90%;">
         <h3 style="color: #f5f5f5;">Select a Card</h3>
         <div id="modal-content" style="display: flex; flex-wrap: wrap; justify-content: center; max-height: 300px; overflow-y: auto;">
@@ -147,19 +157,17 @@
 
                    <div class="form-group" style="margin-top: 8px;">
                        <label>Select Mode</label><br>
-                       <div class="radio-group">
-                           <label class="radio">
-                               <input type="radio" name="mode" value="32C" checked>
-                               <span class="checkmark"></span>
-                               Color
-                           </label>
-                           <label class="radio">
-                               <input type="radio" name="mode" value="4T">
-                               <span class="checkmark"></span>
-                               4-T
-                           </label>
-                       </div>
+                       <div class="dropdown-group">
+                        <label for="mode-select">Mode:</label>
+                        <select name="mode" id="mode-select">
+                            <option value="32C" selected>Color</option>
+                            <option value="4T">4-T</option>
+                        </select>
+                    </div>
                    </div>
+                   <br>
+                   <br>
+                   <br>
                    <button id="transmit-button" class="button-primary" style="width: 100%;">Transmit</button>
                </div>
                
@@ -170,9 +178,12 @@
        <!-- Receive Panel (Center) -->
        <div class="col-4" style="font-size: 0.85em; width: 400px;">
            <div class="card" style="padding: 10px; min-height: 550px;">
-               <h3 style="font-size: 1.1em; margin-bottom: 8px; color: #f5f5f5;">Receive (RX)
-                   <span id="rx-tag" class="tag tag-inactive">RX</span>
-               </h3>
+
+                   <h3 style="font-size: 1.1em; margin-bottom: 8px; color: #f5f5f5;">Receive (RX)
+                    <span id="rx-tag" class="tag tag-inactive">RX</span>
+                <span id="countdowntag" class="countdowntag"></span>
+                </h3>
+        
                <div class="row" style="display: flex; align-items: center; gap: 10px;">
                    <!-- RX Header Information Column -->
                    <div id="rx-info" style="flex: 1;">
@@ -184,7 +195,7 @@
                    </div>
 
                    <!-- RX Display Column -->
-                   <canvas id="rx-display" width="128" height="128" style="background-color: #162b13; border: 1px solid #f5f5f573;"></canvas>
+                   <canvas id="rx-display" width="256" height="256" style="background-color: #162b13; border: 1px solid #f5f5f573;"></canvas>
                </div>
 
                <!-- Waterfall Display Canvas -->
@@ -193,7 +204,7 @@
 
                <label for="amplitude-control" style="color: #f5f5f5; margin-top: 10px;">Amplitude Color Mapping</label>
                <input type="range" id="amplitude-control" min="0" max="200" value="100" style="width: 100%;">
-               <canvas id="waterfall" width="400" height="100" style="width: 100%; height: 100px; background-color: #1e1e1e; margin-top: 10px;"></canvas>
+               <canvas id="waterfall" width="400" height="150" style="width: 100%; height: 150px; background-color: #1e1e1e; margin-top: 10px;"></canvas>
            </div>
        </div>
 

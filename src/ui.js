@@ -72,7 +72,7 @@ function drawWaterfall() {
     for (let i = lowBin; i <= highBin; i++) {
         const value = dataArray[i];
         const percent = value / 255;
-        
+
         // Use a constant hue for green (120), adjust brightness and saturation
         const hue = 120;
         const saturation = 100;
@@ -91,7 +91,8 @@ document.getElementById('transmit-button').addEventListener('click', async (even
 
     const fromCallsign = document.getElementById('from-callsign').value;
     const toCallsign = document.getElementById('to-callsign').value;
-    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const mode = document.querySelector('select[name="mode"]').value;
+
 
     if (!fromCallsign || !toCallsign) {
         alert("Both callsigns must be provided!");
@@ -113,7 +114,7 @@ function addToLog(message, type = 'rx', callsign = '') {
     const timestamp = new Date().toLocaleTimeString();
     const logItem = document.createElement('li');
     logItem.classList.add(type === 'rx' ? 'log-rx' : 'log-tx');
-    
+
     const timeElem = document.createElement('span');
     timeElem.classList.add('timestamp');
     timeElem.textContent = `[${timestamp}] `;
@@ -203,22 +204,66 @@ function displayUtcTime() {
     }, 1000);
 }
 
+
+// Function to show saved cards in the modal for selection
+function showCardModal() {
+    const modal = document.getElementById('card-modal');
+    const modalContent = document.getElementById('modal-content');
+    modalContent.innerHTML = ''; // Clear previous content
+
+    // Load cards from saved storage
+    ipcRenderer.invoke('load-cards').then((savedCards) => {
+        savedCards.forEach((card, index) => {
+            const cardCanvas = document.createElement('canvas');
+            cardCanvas.width = 64;
+            cardCanvas.height = 64;
+            cardCanvas.style.margin = '10px';
+            cardCanvas.style.cursor = 'pointer';
+
+            renderGridToCanvas(cardCanvas, card.gridData, 64); // Render each saved card to canvas
+
+            // On click, update the main grid image
+            cardCanvas.addEventListener('click', () => {
+                const imageGridCanvas = document.getElementById('image-preview');
+                renderGridToCanvas(imageGridCanvas, card.gridData, 128, false);
+                currentGridData = card.gridData.slice(); // Update current grid data
+                modal.style.display = 'none'; // Close modal after selection
+            });
+
+            modalContent.appendChild(cardCanvas); // Add to modal content
+        });
+    });
+
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+
+
 // Initialize after DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
     displayUtcTime(); // Show UTC time
     loadAudioDevices(); // Load the audio devices
     loadFirstCard(); // Load the first saved card
 
-    const modeRadios = document.querySelectorAll('input[name="mode"]');
-    modeRadios.forEach(radio => {
-        radio.addEventListener('change', (event) => {
-            if (event.target.value === "4T") {
-                currentGridData = convertToFourTone(originalGridData);
-                renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false);
-            } else {
-                currentGridData = originalGridData;
-                renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false);
-            }
-        });
+    // Event listener for closing the modal
+    document.getElementById('modal-close').addEventListener('click', () => {
+        document.getElementById('card-modal').style.display = 'none';
     });
+
+    // Event listener for showing modal on image-grid click
+    document.getElementById('image-grid').addEventListener('click', showCardModal);
+
+
+    const modeSelect = document.querySelector('select[name="mode"]');
+    modeSelect.addEventListener('change', (event) => {
+        if (event.target.value === "4T") {
+            currentGridData = convertToFourTone(originalGridData);
+            renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false);
+        } else {
+            currentGridData = originalGridData;
+            renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false);
+        }
+    });
+
 });
