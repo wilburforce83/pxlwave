@@ -190,7 +190,8 @@ async function loadFirstCard() {
         renderGridToCanvas(imageCanvas, firstCard.gridData, 128, false);
         originalGridData = firstCard.gridData.slice();
         currentGridData = firstCard.gridData;
-        document.getElementById('from-callsign').value = firstCard.callsign;
+        const preferences = await ipcRenderer.invoke('load-preferences');
+    document.getElementById('from-callsign').value = preferences.callsign;
     }
 }
 
@@ -264,6 +265,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentGridData = originalGridData;
             renderGridToCanvas(document.getElementById('image-preview'), currentGridData, 128, false);
         }
+    });
+
+    // Add a click event listener to the button
+    document.getElementById('clearlog-button').addEventListener('click', function() {
+        // Clear the contents of the element with ID 'log'
+        document.getElementById('log').innerHTML = '';
     });
 
 });

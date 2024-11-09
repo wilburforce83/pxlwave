@@ -5,6 +5,7 @@ app.disableHardwareAcceleration();
 
 let mainWindow;
 let yourCardsWindow;
+let preferencesWindow;
 
 async function setupElectronStore() {
     const { default: Store } = await import('electron-store');
@@ -79,11 +80,43 @@ async function createYourCardsWindow() {
     });
 }
 
+async function createPreferencesWindow() {
+    preferencesWindow = new BrowserWindow({
+        width: 650,
+        height: 350,
+        backgroundColor: '#1e1e1e',
+        parent: mainWindow,
+        resizable: false,
+        modal: true,
+        icon: path.join(__dirname, 'icons/app-icon.png'),
+        show: false,
+        webPreferences: {
+            contextIsolation: false,
+            nodeIntegration: true,
+        },
+    });
+
+    preferencesWindow.loadFile(path.join(__dirname, '../public/preferences.html'));
+    preferencesWindow.once('ready-to-show', () => {
+        preferencesWindow.show();
+    });
+
+    preferencesWindow.setMenu(null); // No menu or toolbar
+
+    preferencesWindow.on('closed', () => {
+        preferencesWindow = null;
+    });
+}
+
 // Application Menu
 const menuTemplate = [
     {
         label: 'File',
         submenu: [
+            {
+                label: 'Preferences',
+                click: createPreferencesWindow,
+            },
             { role: 'quit' },
         ],
     },
@@ -100,6 +133,7 @@ const menuTemplate = [
 
 const menu = Menu.buildFromTemplate(menuTemplate);
 Menu.setApplicationMenu(menu);
+
 
 app.on('ready', createMainWindow);
 
@@ -212,3 +246,27 @@ if (process.platform === 'darwin') {
         }
     });
 }
+
+// Handle saving and loading preferences
+ipcMain.handle('load-preferences', async () => {
+    const store = await setupElectronStore();
+    return {
+        callsign: store.get('callsign', ''),
+        connectToQRZ: store.get('connectToQRZ', false),
+        qrzUsername: store.get('qrzUsername', ''),
+        qrzPassword: store.get('qrzPassword', ''),
+        maidenheadGrid: store.get('maidenheadGrid', ''),
+        units: store.get('units', 'KM'),
+    };
+});
+
+ipcMain.handle('save-preferences', async (event, preferences) => {
+    const store = await setupElectronStore();
+    store.set('callsign', preferences.callsign);
+    store.set('connectToQRZ', preferences.connectToQRZ);
+    store.set('qrzUsername', preferences.qrzUsername);
+    store.set('qrzPassword', preferences.qrzPassword);
+    store.set('maidenheadGrid', preferences.maidenheadGrid);
+    store.set('units', preferences.units);
+    return 'Preferences saved successfully!';
+});
