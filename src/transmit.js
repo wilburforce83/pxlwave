@@ -1,10 +1,10 @@
 console.log('transmit.js loaded');
 
 // Constants for tone frequency and timing
-const MIN_TONE_FREQ = 950; // Hz
-const MAX_TONE_FREQ = 1150; // Hz
-const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ; // 100Hz bandwidth
-const TONE_DURATION = 150; // 50 milliseconds per tone
+const MIN_TONE_FREQ = 975; // Hz
+const MAX_TONE_FREQ = 1125; // Hz
+const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ; // 150Hz bandwidth
+const TONE_DURATION = 90; // 50 milliseconds per tone
 const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
 const CALIBRATION_TONE_MAX = 1150; // Hz, calibration tone end
 const HEADER_TONE_DURATION = 150; // 100 milliseconds for header tones
@@ -23,19 +23,16 @@ const CHAR_FREQ_MAP = {
     '6': 1103, '7': 1107, '8': 1111, '9': 1115, '-': 1119, ' ': 1125
 };
 
-
 let txAudioContext = null;
 let oscillator = null;
 let gainNode = null;
 let countdownInterval = null;
-
 
 // Function to change the oscillator frequency for each tone duration, with optional smooth transition
 async function changeTone(frequency, duration) {
     const timestamp = performance.now(); // Record timestamp of tone change
     toneLog.push({ timestamp, frequency });
 
-   // console.log(`Changing tone to ${frequency} Hz for ${duration}ms`);
     if (USE_SMOOTH_TRANSITIONS) {
         oscillator.frequency.linearRampToValueAtTime(frequency, txAudioContext.currentTime + 0.01);
     } else {
@@ -66,7 +63,6 @@ function initOscillator() {
     oscillator.start(); // Start the continuous oscillator
 }
 
-
 // Function to toggle the TX tag
 function toggleTxTag(active) {
     txTag.classList.toggle('tag-inactive', !active);
@@ -77,31 +73,17 @@ function toggleTxTag(active) {
 async function transmitHeader(senderCallsign, recipientCallsign, mode) {
     const headerString = `${senderCallsign}-${recipientCallsign}-${mode}`.padEnd(15, ' ');
     console.log(`Encoding and transmitting header: ${headerString}`);
-
-    for (const char of headerString) {
-        const frequency = CHAR_FREQ_MAP[char];
-        if (frequency) {
-            await changeTone(frequency, HEADER_TONE_DURATION);
-        } else {
-            console.error(`No frequency mapping for character: ${char}`);
-        }
-    }
-
-    // End header with an additional calibration tone
-    await changeTone(CALIBRATION_TONE_MAX, 500);
-    console.log('Header and calibration tone transmitted.');
-}
-
-// Function to encode and transmit header data (callsigns and mode)
-async function transmitHeader(senderCallsign, recipientCallsign, mode) {
-    const headerString = `${senderCallsign}-${recipientCallsign}-${mode}`.padEnd(15, ' ');
-    console.log(`Encoding and transmitting header: ${headerString}`);
     
     const headerTones = []; // Array to store header tones for logging
 
-    for (const char of headerString) {
+    for (let i = 0; i < headerString.length; i++) {
+        const char = headerString[i];
         const frequency = CHAR_FREQ_MAP[char];
         if (frequency) {
+            if (i !== 0) {
+                // Insert calibration tone between characters
+                await changeTone(CALIBRATION_TONE_MIN, 60);
+            }
             headerTones.push(frequency); // Store each tone in the array
             await changeTone(frequency, HEADER_TONE_DURATION);
         } else {
@@ -136,16 +118,25 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     // Transmit encoded header data
     await transmitHeader(senderCallsign, recipientCallsign, mode);
 
-    // Map each color in gridData to a tone and transmit
+    // Map each color in gridData to a tone
     let modeVal = 32;
     if (mode === "4T") {
         modeVal = 4;
     }
     const tones = gridData.map(colorIndex => MIN_TONE_FREQ + (colorIndex * (BANDWIDTH / modeVal)));
 
-    // Transmit tones for image data
-    for (const tone of tones) {
-        await changeTone(tone, TONE_DURATION);
+    // Transmit tones for image data with calibration tones between characters
+    for (let i = 0; i < tones.length; i++) {
+        // Before each character, insert calibration tone
+        if (i % 32 === 0 && i !== 0) {
+            // After every 32nd character (end of line), use MAX calibration tone
+            await changeTone(CALIBRATION_TONE_MAX, 60);
+        } else {
+            // Use MIN calibration tone between characters
+            await changeTone(CALIBRATION_TONE_MIN, 60);
+        }
+        // Transmit character tone
+        await changeTone(tones[i], TONE_DURATION);
     }
 
     toggleTxTag(false);
@@ -190,7 +181,6 @@ function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode)
 
     addToLog(`Transmission scheduled for ${recipientCallsign}. Waiting for synchronized 3rd minute interval...`, "tx", senderCallsign);
 }
-
 
 // Export the startTransmission and scheduleTransmission functions
 module.exports = {
