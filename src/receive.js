@@ -125,6 +125,12 @@ function RX_detectTone(frequency) {
                 RX_startHeaderDecoding();
             }, 150); // Gap after calibration tones before header decoding starts
         }
+    } else {
+
+        // logic to filter the tone into one of the expected tones, make an array of all tones; min and max calibration, characters, and 
+        // tone map then match the frequency to the closest frequency in the array.
+      //  RX_receivedFrequencies.push(...closest frequency from above); this will be the whole collection point, all other functions iterate over this array
+        //
     }
 }
 
@@ -171,7 +177,7 @@ function RX_startHeaderDecoding() {
 
             await new Promise(resolve => setTimeout(resolve, 10));
         }
-        RX_receivedFrequencies.push(...frequencies);
+        //RX_receivedFrequencies.push(...frequencies);
         const modeFrequency = calculateMode(frequencies, true);
         const decodedChar = RX_decodeTone(modeFrequency);
 
