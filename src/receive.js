@@ -20,7 +20,7 @@ const RX_TONE_DURATION = 90; // milliseconds per tone
 const RX_HEADER_TONE_DURATION = 150; // milliseconds for header tones
 const NUM_COLORS = 32;
 const SAMPLE_FACTOR = 1.25; // divider number for the period of time to sample the tone i.e. 3 would be 1/3 of the total tone period, higher number is faster but less
-const OUT_OF_RANGE_FREQ = 10; // plus or minus hz to cut off 
+
 // Calibration tones for error correction
 const RX_CALIBRATION_TONE_MIN = 950; // Hz
 const RX_CALIBRATION_TONE_MAX = 1150; // Hz
@@ -100,13 +100,13 @@ function RX_detectTone(frequency, amplitude) {
     const timestamp = Date.now();
 
     if (!RX_receivedMinCalibrationTone) {
-        if (Math.abs(frequency - RX_CALIBRATION_TONE_MIN) <= OUT_OF_RANGE_FREQ ) {
+        if (Math.abs(frequency - RX_CALIBRATION_TONE_MIN) <= 50) {
             RX_receivedMinCalibrationTone = frequency;
             RX_toneDataLog.push({ timestamp, frequency }); // Log timestamp and frequency
             addToLog(`Received min calibration tone: ${frequency} Hz`);
         }
     } else if (!RX_receivedMaxCalibrationTone) {
-        if (Math.abs(frequency - RX_CALIBRATION_TONE_MAX) <= OUT_OF_RANGE_FREQ ) {
+        if (Math.abs(frequency - RX_CALIBRATION_TONE_MAX) <= 50) {
             RX_receivedMaxCalibrationTone = frequency;
             RX_toneDataLog.push({ timestamp, frequency }); // Log timestamp and frequency
             addToLog(`Received max calibration tone: ${frequency} Hz (sync point)`);
@@ -117,7 +117,9 @@ function RX_detectTone(frequency, amplitude) {
             // Optionally, set a timeout to stop listening after expected transmission duration
             setTimeout(() => {
                 RX_collectingFrequencies = false;
-                processCollectedFrequencies();
+                // Process the collected frequencies
+                const condensedFrequencies = condenseFrequencies(RX_receivedFrequencies.map(item => item.frequency));
+                processCollectedFrequencies(condensedFrequencies);
             }, RX_expectedTransmissionDuration());
         }
     } else if (RX_collectingFrequencies) {
@@ -151,12 +153,35 @@ function snapToClosestFrequency(frequency) {
     return closestFrequency;
 }
 
-// Process collected frequencies to decode header and image data
-function processCollectedFrequencies() {
-    addToLog('Processing collected frequencies to decode header and image data...');
+// Function to condense frequencies based on consecutive repetitions
+function condenseFrequencies(frequencies) {
+    let condensed = [];
+    let currentFreq = frequencies[0];
+    let count = 1;
 
-    // Remove initial calibration tones from the frequencies
-    const frequencies = RX_receivedFrequencies.map(item => item.frequency);
+    for (let i = 1; i < frequencies.length; i++) {
+        if (frequencies[i] === currentFreq) {
+            count++;
+        } else {
+            if (count > 2) { // If the frequency lasted more than two frames
+                condensed.push(currentFreq);
+            }
+            currentFreq = frequencies[i];
+            count = 1;
+        }
+    }
+    // Handle the last frequency
+    if (count > 2) {
+        condensed.push(currentFreq);
+    }
+
+    return condensed;
+}
+
+// Process collected frequencies to decode header and image data
+function processCollectedFrequencies(frequencies) {
+    console.log(frequencies);
+    addToLog('Processing collected frequencies to decode header and image data...');
 
     // Initialize variables
     let index = 0;
@@ -309,7 +334,7 @@ function findClosestChar(frequency) {
 
 // Estimate expected transmission duration based on known timings
 function RX_expectedTransmissionDuration() {
-    const headerDuration = 500 + 500 + (15 * (HEADER_TONE_DURATION + 60)) + 500 + 200;
+    const headerDuration = 500 + 500 + (15 * (RX_HEADER_TONE_DURATION + 60)) + 500 + 200;
     const imageDuration = 1024 * (RX_TONE_DURATION + 60) + ((1024 / 32) * 60);
     return headerDuration + imageDuration + 5000; // Additional buffer
 }
@@ -415,12 +440,11 @@ function RX_startListening() {
         addToLog('Listening for tones...');
         RX_startMicrophoneStream();
 
-        /*
         // Stop listening after the specified RX_endTime if no transmission is detected
         RX_listeningTimeout = setTimeout(() => {
             if (!RX_headerReceived) {
                 toggleRxTag(false);
-                addToLog("No transmission detected, returning...");
+               // addToLog("No transmission detected, returning...");
                 // Stop the microphone stream
                 if (RX_microphoneStream) {
                     RX_microphoneStream.disconnect();
@@ -430,7 +454,6 @@ function RX_startListening() {
                 }
             }
         }, (RX_endTime - RX_startTime) * 1000);
-        */
     }, timeUntilNextListen);
 
     // Re-run the function every 3 minutes to re-synchronize
