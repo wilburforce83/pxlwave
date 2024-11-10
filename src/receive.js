@@ -72,28 +72,73 @@ async function RX_startMicrophoneStream() {
     }
 }
 
-// Process microphone input in real-time
 function RX_processMicrophoneInput() {
-    RX_analyser.getByteFrequencyData(RX_dataArray);
+    // Ensure RX_dataArray is a Float32Array
+    if (!(RX_dataArray instanceof Float32Array)) {
+        RX_dataArray = new Float32Array(RX_analyser.frequencyBinCount);
+    }
 
-    let maxAmplitude = 0;
-    let peakFrequency = 0;
+    // Get frequency data in decibels
+    RX_analyser.getFloatFrequencyData(RX_dataArray);
+
+    let maxAmplitude = -Infinity; // Initialize to negative infinity for dB values
+    let peakIndex = -1;
     const nyquist = RX_audioContext.sampleRate / 2;
+    const binWidth = nyquist / RX_bufferLength; // Frequency per bin
+
     const lowBin = Math.floor((900 / nyquist) * RX_bufferLength);
     const highBin = Math.ceil((1300 / nyquist) * RX_bufferLength);
 
+    // Find the peak bin within the frequency range
     for (let i = lowBin; i <= highBin; i++) {
-        if (RX_dataArray[i] > maxAmplitude) {
-            maxAmplitude = RX_dataArray[i];
-            peakFrequency = (i / RX_bufferLength) * nyquist;
+        const amplitude = RX_dataArray[i];
+        if (amplitude > maxAmplitude) {
+            maxAmplitude = amplitude;
+            peakIndex = i;
         }
     }
 
-    // Adjusted to include frequencies outside the expected range (silence)
-    RX_detectTone(peakFrequency, maxAmplitude);
+    // Check if a peak was found
+    if (peakIndex === -1) {
+        requestAnimationFrame(RX_processMicrophoneInput);
+        return;
+    }
+
+    // Apply a minimum amplitude threshold to filter out noise
+    const amplitudeThreshold = -70; // Adjust as needed
+    if (maxAmplitude < amplitudeThreshold) {
+        requestAnimationFrame(RX_processMicrophoneInput);
+        return;
+    }
+
+    // Quadratic interpolation to estimate the true peak frequency
+    let mag0 = RX_dataArray[peakIndex - 1] || RX_dataArray[peakIndex];
+    let mag1 = RX_dataArray[peakIndex];
+    let mag2 = RX_dataArray[peakIndex + 1] || RX_dataArray[peakIndex];
+
+    // Convert dB magnitudes to linear scale
+    mag0 = Math.pow(10, mag0 / 20);
+    mag1 = Math.pow(10, mag1 / 20);
+    mag2 = Math.pow(10, mag2 / 20);
+
+    // Calculate the interpolation factor
+    const numerator = mag0 - mag2;
+    const denominator = 2 * (mag0 - 2 * mag1 + mag2);
+    let delta = 0;
+    if (denominator !== 0) {
+        delta = numerator / denominator;
+    }
+
+    // Estimate the peak frequency
+    const interpolatedIndex = peakIndex + delta;
+    const peakFrequency = interpolatedIndex * binWidth;
+
+    // Pass the estimated frequency and amplitude to RX_detectTone
+    RX_detectTone(peakFrequency, mag1);
 
     requestAnimationFrame(RX_processMicrophoneInput);
 }
+
 
 // Modify RX_detectTone to capture and store timestamp and frequency data
 function RX_detectTone(frequency, amplitude) {
@@ -124,11 +169,11 @@ function RX_detectTone(frequency, amplitude) {
         }
     } else if (RX_collectingFrequencies) {
         // Adjust frequency using calibration offset
-        const adjustedFreq = frequency - RX_calibrationOffset;
+        const adjustedFreq = Math.round(frequency * 1000) / 1000; //- RX_calibrationOffset;
         // Find the closest expected frequency or map to 0 if outside range
         const snappedFrequency = snapToClosestFrequency(adjustedFreq);
         // Push to RX_receivedFrequencies
-        RX_receivedFrequencies.push({ frequency: snappedFrequency, timestamp });
+        RX_receivedFrequencies.push({ frequency: snappedFrequency, rawfreq: adjustedFreq, timestamp });
         // Optionally, store timestamp and raw frequency
         RX_toneDataLog.push({ timestamp, frequency, snappedFrequency });
     }
@@ -181,6 +226,7 @@ function condenseFrequencies(frequencies) {
 // Process collected frequencies to decode header and image data
 function processCollectedFrequencies(frequencies) {
     console.log(frequencies);
+    saveFrequenciesToFile()
     addToLog('Processing collected frequencies to decode header and image data...');
 
     // Initialize variables
@@ -465,5 +511,42 @@ function toggleRxTag(active) {
     rxTag.classList.toggle('tag-inactive', !active);
     rxTag.classList.toggle('tag-rx', active);
 }
+
+
+function saveFrequenciesToFile() {
+    // Prepare the data to be saved
+    const dataToSave = {
+        timestamp: new Date().toISOString(),
+        frequencies: RX_receivedFrequencies
+    };
+
+    // Convert the data to a JSON string
+    const jsonString = JSON.stringify(dataToSave, null, 2);
+
+    // Create a Blob from the JSON string
+    const blob = new Blob([jsonString], { type: 'application/json' });
+
+    // Create a link element
+    const link = document.createElement('a');
+
+    // Set the download attribute with a filename
+    link.download = `frequencies_${Date.now()}.json`;
+
+    // Create an object URL and set it as the href of the link
+    link.href = window.URL.createObjectURL(blob);
+
+    // Append the link to the document body
+    document.body.appendChild(link);
+
+    // Trigger the click event to start the download
+    link.click();
+
+    // Clean up by removing the link and revoking the object URL
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+
+    addToLog(`Frequencies saved to JSON file.`);
+}
+
 
 RX_startListening();
