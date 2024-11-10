@@ -12,8 +12,8 @@ let RX_toneDataLog = [];
 let RX_receivedFrequencies = []; // an array for all samples
 
 // Constants for RX tone processing
-const RX_MIN_TONE_FREQ = 950; // Hz
-const RX_MAX_TONE_FREQ = 1150; // Hz
+const RX_MIN_TONE_FREQ = 975; // Hz
+const RX_MAX_TONE_FREQ = 1125; // Hz
 const RX_BANDWIDTH = RX_MAX_TONE_FREQ - RX_MIN_TONE_FREQ; // bandwidth
 const RX_TONE_DURATION = 90; // milliseconds per tone
 const RX_HEADER_TONE_DURATION = 150; // milliseconds for header tones
