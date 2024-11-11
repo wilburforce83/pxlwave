@@ -7,6 +7,7 @@ let RX_headerData = {};
 let RX_currentPixel = 0;
 const RX_startTime = 6; // Start at + x seconds
 const RX_endTime = 15; // Timeout if no calibration tone detected by +15 seconds
+const RX_INTERVAL = .5 // RX trigger interval
 // Array to store tone data for analysis
 let RX_toneDataLog = [];
 let RX_receivedFrequencies = []; // an array for all samples
@@ -16,10 +17,16 @@ let errorCount = 0; // Variable to count errors during decoding
 const RX_MIN_TONE_FREQ = 975; // Hz
 const RX_MAX_TONE_FREQ = 1125; // Hz
 const RX_BANDWIDTH = RX_MAX_TONE_FREQ - RX_MIN_TONE_FREQ; // bandwidth
-const RX_TONE_DURATION = 90; // milliseconds per tone
-const RX_HEADER_TONE_DURATION = 150; // milliseconds for header tones
+const RX_TONE_DURATION = 100; // milliseconds per tone
+const RX_HEADER_TONE_DURATION = 100; // milliseconds for header tones
 const NUM_COLORS = 32;
 const SAMPLE_FACTOR = 1.25; // divider number for the period of time to sample the tone i.e. 3 would be 1/3 of the total tone period, higher number is faster but less
+
+// Constants for easy adjustment and testing
+const RX_FFT_SIZE = 8192;          // Adjust fftSize for time resolution (was 32768)
+const RX_AMPLITUDE_THRESHOLD = -70; // Adjust amplitude threshold in dB (was -90)
+const RX_ANALYSIS_INTERVAL = 5;     // Adjust analysis interval in milliseconds
+const RX_REQUIRED_SAMPLES_PER_TONE = 3;
 
 // Calibration tones for error correction
 const RX_CALIBRATION_TONE_MIN = 950; // Hz
@@ -33,10 +40,10 @@ let RX_collectingFrequencies = false;
 
 // Frequency map for decoding header (A-Z, 0-9, and '-')
 const RX_CHAR_FREQ_MAP = {
-    'A': 975, 'B': 979, 'C': 983, 'D': 987, 'E': 991, 'F': 995, 'G': 999, 'H': 1003, 
-    'I': 1007, 'J': 1011, 'K': 1015, 'L': 1019, 'M': 1023, 'N': 1027, 'O': 1031, 'P': 1035, 
-    'Q': 1039, 'R': 1043, 'S': 1047, 'T': 1051, 'U': 1055, 'V': 1059, 'W': 1063, 'X': 1067, 
-    'Y': 1071, 'Z': 1075, '0': 1079, '1': 1083, '2': 1087, '3': 1091, '4': 1095, '5': 1099, 
+    'A': 975, 'B': 979, 'C': 983, 'D': 987, 'E': 991, 'F': 995, 'G': 999, 'H': 1003,
+    'I': 1007, 'J': 1011, 'K': 1015, 'L': 1019, 'M': 1023, 'N': 1027, 'O': 1031, 'P': 1035,
+    'Q': 1039, 'R': 1043, 'S': 1047, 'T': 1051, 'U': 1055, 'V': 1059, 'W': 1063, 'X': 1067,
+    'Y': 1071, 'Z': 1075, '0': 1079, '1': 1083, '2': 1087, '3': 1091, '4': 1095, '5': 1099,
     '6': 1103, '7': 1107, '8': 1111, '9': 1115, '-': 1119, ' ': 1125
 };
 
@@ -53,8 +60,7 @@ const RX_4T_TONE_MAP = [975, 1023, 1075, 1099];
 const RX_EXPECTED_FREQUENCIES = [
     RX_CALIBRATION_TONE_MIN,
     RX_CALIBRATION_TONE_MAX,
-    ...Object.values(RX_CHAR_FREQ_MAP),
-    ...RX_32C_TONE_MAP
+    ...Object.values(RX_CHAR_FREQ_MAP)
 ];
 
 let RX_listeningTimeout;
@@ -66,10 +72,11 @@ async function RX_startMicrophoneStream() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         RX_microphoneStream = RX_audioContext.createMediaStreamSource(stream);
         RX_analyser = RX_audioContext.createAnalyser();
-        RX_analyser.fftSize = 32768; // Set FFT size for frequency analysis
-        RX_bufferLength = RX_analyser.frequencyBinCount;
-        RX_dataArray = new Uint8Array(RX_bufferLength);
 
+        // Set fftSize for better time resolution
+        RX_analyser.fftSize = RX_FFT_SIZE;
+        RX_bufferLength = RX_analyser.frequencyBinCount;
+        RX_dataArray = new Float32Array(RX_bufferLength); // Use Float32Array for getFloatFrequencyData
         RX_microphoneStream.connect(RX_analyser);
         RX_processMicrophoneInput(); // Start processing microphone input
     } catch (error) {
@@ -91,8 +98,8 @@ function RX_processMicrophoneInput() {
     const nyquist = RX_audioContext.sampleRate / 2;
     const binWidth = nyquist / RX_bufferLength; // Frequency per bin
 
-    const lowBin = Math.floor((900 / nyquist) * RX_bufferLength);
-    const highBin = Math.ceil((1300 / nyquist) * RX_bufferLength);
+    const lowBin = Math.floor((925 / nyquist) * RX_bufferLength);
+    const highBin = Math.ceil((1175 / nyquist) * RX_bufferLength);
 
     // Find the peak bin within the frequency range
     for (let i = lowBin; i <= highBin; i++) {
@@ -103,46 +110,38 @@ function RX_processMicrophoneInput() {
         }
     }
 
-    // Check if a peak was found
-    if (peakIndex === -1) {
-        requestAnimationFrame(RX_processMicrophoneInput);
-        return;
+    // Proceed only if a peak was found and it exceeds the amplitude threshold
+    if (peakIndex !== -1 && maxAmplitude >= RX_AMPLITUDE_THRESHOLD) {
+        // Quadratic interpolation to estimate the true peak frequency
+        let mag0 = RX_dataArray[peakIndex - 1] || RX_dataArray[peakIndex];
+        let mag1 = RX_dataArray[peakIndex];
+        let mag2 = RX_dataArray[peakIndex + 1] || RX_dataArray[peakIndex];
+
+        // Convert dB magnitudes to linear scale
+        mag0 = Math.pow(10, mag0 / 20);
+        mag1 = Math.pow(10, mag1 / 20);
+        mag2 = Math.pow(10, mag2 / 20);
+
+        // Calculate the interpolation factor
+        const numerator = mag0 - mag2;
+        const denominator = 2 * (mag0 - 2 * mag1 + mag2);
+        let delta = 0;
+        if (denominator !== 0) {
+            delta = numerator / denominator;
+        }
+
+        // Estimate the peak frequency
+        const interpolatedIndex = peakIndex + delta;
+        const peakFrequency = interpolatedIndex * binWidth;
+
+        // Pass the estimated frequency and amplitude to RX_detectTone
+        RX_detectTone(peakFrequency, mag1);
     }
 
-    // Apply a minimum amplitude threshold to filter out noise
-    const amplitudeThreshold = -70; // Adjust as needed
-    if (maxAmplitude < amplitudeThreshold) {
-        requestAnimationFrame(RX_processMicrophoneInput);
-        return;
-    }
-
-    // Quadratic interpolation to estimate the true peak frequency
-    let mag0 = RX_dataArray[peakIndex - 1] || RX_dataArray[peakIndex];
-    let mag1 = RX_dataArray[peakIndex];
-    let mag2 = RX_dataArray[peakIndex + 1] || RX_dataArray[peakIndex];
-
-    // Convert dB magnitudes to linear scale
-    mag0 = Math.pow(10, mag0 / 20);
-    mag1 = Math.pow(10, mag1 / 20);
-    mag2 = Math.pow(10, mag2 / 20);
-
-    // Calculate the interpolation factor
-    const numerator = mag0 - mag2;
-    const denominator = 2 * (mag0 - 2 * mag1 + mag2);
-    let delta = 0;
-    if (denominator !== 0) {
-        delta = numerator / denominator;
-    }
-
-    // Estimate the peak frequency
-    const interpolatedIndex = peakIndex + delta;
-    const peakFrequency = interpolatedIndex * binWidth;
-
-    // Pass the estimated frequency and amplitude to RX_detectTone
-    RX_detectTone(peakFrequency, mag1);
-
-    requestAnimationFrame(RX_processMicrophoneInput);
+    // Continue processing
+    setTimeout(RX_processMicrophoneInput, RX_ANALYSIS_INTERVAL); // Use setTimeout for adjustable interval
 }
+
 
 
 // Modify RX_detectTone to capture and store timestamp and frequency data
@@ -150,13 +149,13 @@ function RX_detectTone(frequency, amplitude) {
     const timestamp = Date.now();
 
     if (!RX_receivedMinCalibrationTone) {
-        if (Math.abs(frequency - RX_CALIBRATION_TONE_MIN) <= 50) {
+        if (Math.abs(frequency - RX_CALIBRATION_TONE_MIN) <= 5) {
             RX_receivedMinCalibrationTone = frequency;
             RX_toneDataLog.push({ timestamp, frequency }); // Log timestamp and frequency
             addToLog(`Received min calibration tone: ${frequency} Hz`);
         }
     } else if (!RX_receivedMaxCalibrationTone) {
-        if (Math.abs(frequency - RX_CALIBRATION_TONE_MAX) <= 50) {
+        if (Math.abs(frequency - RX_CALIBRATION_TONE_MAX) <= 5) {
             RX_receivedMaxCalibrationTone = frequency;
             RX_toneDataLog.push({ timestamp, frequency }); // Log timestamp and frequency
             addToLog(`Received max calibration tone: ${frequency} Hz (sync point)`);
@@ -167,10 +166,16 @@ function RX_detectTone(frequency, amplitude) {
             // Optionally, set a timeout to stop listening after expected transmission duration
             setTimeout(() => {
                 RX_collectingFrequencies = false;
-                // Process the collected frequencies
-                const condensedFrequencies = condenseFrequencies(RX_receivedFrequencies.map(item => item.frequency));
-                processCollectedFrequencies(condensedFrequencies);
-            }, RX_expectedTransmissionDuration());
+                // Process the collected frequencies for the header
+              //  console.log(RX_receivedFrequencies)
+                processCollectedFrequencies(RX_receivedFrequencies, "HEADER");
+            }, RX_HEADER_TONE_DURATION*30*2);
+            setTimeout(() => {
+                RX_collectingFrequencies = false;
+                // Process the collected frequencies for the header
+              //  console.log(RX_receivedFrequencies)
+                processCollectedFrequencies(RX_receivedFrequencies, "ALL");
+            }, RX_INTERVAL *60*1000);
         }
     } else if (RX_collectingFrequencies) {
         // Adjust frequency using calibration offset
@@ -192,8 +197,8 @@ function RX_calculateCalibrationOffset() {
 
 // Snapping function to find the closest frequency in the expected frequencies or return 0 if outside range
 function snapToClosestFrequency(frequency) {
-    const threshold = 50; // Threshold to consider frequency as valid
-    let closestFrequency = RX_EXPECTED_FREQUENCIES.reduce((closest, curr) => 
+    const threshold = 2; // Threshold to consider frequency as valid
+    let closestFrequency = RX_EXPECTED_FREQUENCIES.reduce((closest, curr) =>
         Math.abs(curr - frequency) < Math.abs(closest - frequency) ? curr : closest
     );
     if (Math.abs(closestFrequency - frequency) > threshold) {
@@ -203,143 +208,56 @@ function snapToClosestFrequency(frequency) {
     return closestFrequency;
 }
 
-// Function to condense frequencies based on consecutive repetitions
-function condenseFrequencies(frequencies) {
-    let condensed = [];
-    let currentFreq = frequencies[0];
-    let count = 1;
-
-    for (let i = 1; i < frequencies.length; i++) {
-        if (frequencies[i] === currentFreq) {
-            count++;
-        } else {
-            if (count > 2) { // If the frequency lasted more than two frames
-                condensed.push(currentFreq);
-            }
-            currentFreq = frequencies[i];
-            count = 1;
-        }
-    }
-    // Handle the last frequency
-    if (count > 2) {
-        condensed.push(currentFreq);
-    }
-
-    return condensed;
-}
-
 // Process collected frequencies to decode header and image data
-function processCollectedFrequencies(frequencies) {
+function processCollectedFrequencies(data,type) {
+
+    const frequencies = data.map(item => item.frequency);
     console.log(frequencies);
-    saveFrequenciesToFile()
-    addToLog('Processing collected frequencies to decode header and image data...');
+    const result = [];
+    let currentGroup = [];
+    let lastFrequency = null;
 
-    // Initialize variables
-    let index = 0;
-    let mode = 'HEADER'; // or 'IMAGE'
-    let headerString = '';
-    let pixelData = [];
-    let pixelIndex = 0;
+    for (let i = 0; i < frequencies.length; i++) {
+        const freq = frequencies[i];
 
-    while (index < frequencies.length) {
-        let freq = frequencies[index];
-
-        // Handle silence (0) or gaps in transmission
-        if (freq === 0) {
-            index++;
-            continue;
+        // Check for spacer tone or frequency change
+        if ((freq === 950 || freq === 1150) || (lastFrequency !== null && freq !== lastFrequency)) {
+            // If currentGroup has 3 or more consecutive frequencies, push it to result
+            if (currentGroup.length >= RX_REQUIRED_SAMPLES_PER_TONE) {
+                result.push(currentGroup[0]);
+            }
+            // Reset currentGroup for new frequency, skipping spacer tones
+            currentGroup = (freq === 950 || freq === 1150) ? [] : [freq];
+        } else {
+            currentGroup.push(freq);
         }
 
-        // Check for calibration tones
-        if (Math.abs(freq - (RX_CALIBRATION_TONE_MIN + RX_calibrationOffset)) < 10 ||
-            Math.abs(freq - (RX_CALIBRATION_TONE_MAX + RX_calibrationOffset)) < 10) {
-            // It's a calibration tone, move to the next frequency
-            index++;
-            continue;
-        }
-
-        // The next frequency after calibration tone is a character/pixel tone
-        let toneFreq = freq + RX_calibrationOffset;
-
-        if (mode === 'HEADER') {
-            // Decode header character
-            const char = findClosestChar(toneFreq);
-            if (char) {
-                headerString += char;
-            } else {
-                headerString += '?'; // Unknown character
-                errorCount++;
-                addToLog(`Warning: Could not decode character at index ${index}, frequency ${toneFreq} Hz`);
-            }
-
-            index++;
-            // Check for calibration tone between characters
-            if (index < frequencies.length) {
-                const nextFreq = frequencies[index];
-                if (Math.abs(nextFreq - (RX_CALIBRATION_TONE_MIN + RX_calibrationOffset)) < 10) {
-                    index++; // Skip calibration tone
-                }
-            }
-
-            // Check if header is complete (e.g., length or termination condition)
-            if (headerString.length >= 15) {
-                addToLog(`Decoded header: ${headerString}`);
-                RX_validateHeader(headerString);
-                mode = 'IMAGE'; // Switch to image decoding
-            }
-        } else if (mode === 'IMAGE') {
-            // Decode image pixel
-            // Determine expected calibration tone before pixel
-            const expectedCalibrationTone = (pixelIndex % 32 === 0 && pixelIndex !== 0) ? 
-                RX_CALIBRATION_TONE_MAX + RX_calibrationOffset : RX_CALIBRATION_TONE_MIN + RX_calibrationOffset;
-
-            // Check if previous frequency was expected calibration tone
-            const prevFreq = frequencies[index - 1] || 0;
-            if (Math.abs(prevFreq - expectedCalibrationTone) > 10) {
-                errorCount++;
-                addToLog(`Warning: Expected calibration tone before pixel ${pixelIndex}, but got ${prevFreq} Hz`);
-            }
-
-            // Find the closest tone in RX_32C_TONE_MAP
-            const colorIndex = RX_32C_TONE_MAP.findIndex(freq => Math.abs(freq - toneFreq) < 2);
-
-            if (colorIndex !== -1) {
-                pixelData.push(colorIndex);
-            } else {
-                pixelData.push(0); // Default color if not matched
-                errorCount++;
-                addToLog(`Warning: Could not match pixel tone at pixel ${pixelIndex}, frequency ${toneFreq} Hz`);
-            }
-
-            pixelIndex++;
-            index++;
-
-            // Check if image is complete
-            if (pixelIndex >= 1024) {
-                break;
-            }
-
-            // Skip calibration tone between pixels
-            if (index < frequencies.length) {
-                const nextFreq = frequencies[index];
-                if (Math.abs(nextFreq - (RX_CALIBRATION_TONE_MIN + RX_calibrationOffset)) < 10 ||
-                    Math.abs(nextFreq - (RX_CALIBRATION_TONE_MAX + RX_calibrationOffset)) < 10) {
-                    index++; // Skip calibration tone
-                }
-            }
-        }
+        lastFrequency = freq;
     }
 
-    // Update RX_gridData with pixelData
-    RX_gridData = pixelData;
-
-    // Render the image
-    for (let i = 0; i < RX_gridData.length; i++) {
-        RX_renderPixel(i, RX_gridData[i]);
+    // Check if the last group is valid and add it if so
+    if (currentGroup.length >= RX_REQUIRED_SAMPLES_PER_TONE) {
+        result.push(currentGroup[0]);
     }
-
+    // Remove any 0 elements from the result array
+    const filteredResult = result.filter(value => value !== 0);
+    console.log(filteredResult);
+    if (type === "HEADER") {
+        const first15Elements = filteredResult.slice(0, 15)
+        
+        // Convert each element to a character using findClosestChar and build a string
+    let decodedString = '';
+    for (const frequency of first15Elements) {
+        const char = findClosestChar(frequency);
+        if (char !== null) {
+            decodedString += char;
+        }
+    }
+    RX_validateHeader(decodedString)
+    console.log('Decoded String:', decodedString);
+    }
     // Save the transmission
-    RX_saveTransmission();
+   // RX_saveTransmission();
 }
 
 function RX_validateHeader(headerString) {
@@ -352,10 +270,15 @@ function RX_validateHeader(headerString) {
     let [senderCallsign, recipientCallsign, mode] = headerParts;
 
     if (mode !== '32C' && mode !== '4T') {
-        addToLog(`Invalid mode in header: "${mode}" (Expected "32C" or "4T")`);
+        addToLog(`Invalid mode in header: "${mode.trim()}" (Expected "32C" or "4T")`);
         mode = '32C'; // Default to 32C
         errorCount++;
     }
+
+    // Update the spans with the header data
+    document.getElementById('image-type').innerText = mode.trim();
+    document.getElementById('sender-callsign').innerText = senderCallsign.trim();
+    document.getElementById('recipient-callsign').innerText = recipientCallsign.trim();
 
     RX_headerData = { sender: senderCallsign.trim(), recipient: recipientCallsign.trim(), type: mode.trim() };
     addToLog(`Header received: Type=${RX_headerData.type}, Sender=${RX_headerData.sender}, To=${RX_headerData.recipient}`);
@@ -364,9 +287,10 @@ function RX_validateHeader(headerString) {
     RX_headerReceived = true;
 }
 
+
 // Function to find the closest character based on frequency
 function findClosestChar(frequency) {
-    const threshold = 10; // Threshold to consider frequency as valid
+    const threshold = 2; // Threshold to consider frequency as valid
     let closestChar = null;
     let minDiff = Infinity;
     for (const [char, freq] of Object.entries(RX_CHAR_FREQ_MAP)) {
@@ -381,13 +305,6 @@ function findClosestChar(frequency) {
         return null; // Return null if frequency is not close enough
     }
     return closestChar;
-}
-
-// Estimate expected transmission duration based on known timings
-function RX_expectedTransmissionDuration() {
-    const headerDuration = 500 + 500 + (15 * (RX_HEADER_TONE_DURATION + 60)) + 500 + 200;
-    const imageDuration = 1024 * (RX_TONE_DURATION + 60) + ((1024 / 32) * 60);
-    return headerDuration + imageDuration + 5000; // Additional buffer
 }
 
 // Function to render a single oversized pixel on the canvas as it's decoded
@@ -472,7 +389,7 @@ function RX_startListening() {
     const timeSinceEpoch = now.getTime() - epoch.getTime();
 
     // Calculate how many milliseconds are in a 3-minute interval
-    const intervalMs = 3 * 60 * 1000;
+    const intervalMs = RX_INTERVAL * 60 * 1000;
 
     // Calculate the next 3-minute interval after the epoch, and add RX_startTime as an offset
     const nextInterval = new Date(epoch.getTime() + Math.ceil(timeSinceEpoch / intervalMs) * intervalMs);
@@ -495,7 +412,7 @@ function RX_startListening() {
         RX_listeningTimeout = setTimeout(() => {
             if (!RX_headerReceived) {
                 toggleRxTag(false);
-               // addToLog("No transmission detected, returning...");
+                // addToLog("No transmission detected, returning...");
                 // Stop the microphone stream
                 if (RX_microphoneStream) {
                     RX_microphoneStream.disconnect();

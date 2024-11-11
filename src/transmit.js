@@ -1,15 +1,14 @@
 console.log('transmit.js loaded');
 
 // Constants for tone frequency and timing
-const MIN_TONE_FREQ = 975; // Hz
-const MAX_TONE_FREQ = 1125; // Hz
-const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ; // 150Hz bandwidth
-const TONE_DURATION = 60; // 60 milliseconds per tone
+const TONE_DURATION = 100; // milliseconds per tone
 const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
 const CALIBRATION_TONE_MAX = 1150; // Hz, calibration tone end
-const HEADER_TONE_DURATION = 150; // 100 milliseconds for header tones
+const HEADER_TONE_DURATION = 100; // milliseconds for header tones
+const TX_INTERVAL = 3.5; // minutes between TX
 // Toggle smooth transitions on or off
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
+
 
 // Object to store tone log data
 let toneLog = [];
@@ -44,7 +43,7 @@ async function changeTone(frequency, duration) {
     toneLog.push({ timestamp, frequency });
 
     if (USE_SMOOTH_TRANSITIONS) {
-        oscillator.frequency.linearRampToValueAtTime(frequency, txAudioContext.currentTime + 0.01);
+        oscillator.frequency.linearRampToValueAtTime(frequency, txAudioContext.currentTime + 0.005);
     } else {
         oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime);
     }
@@ -90,12 +89,12 @@ async function transmitHeader(senderCallsign, recipientCallsign, mode) {
         const char = headerString[i];
         const frequency = CHAR_FREQ_MAP[char];
         if (frequency) {
-            /*
+            
             if (i !== 0) {
                 // Insert calibration tone between characters
-                await changeTone(CALIBRATION_TONE_MIN, 60);
+                await changeTone(CALIBRATION_TONE_MIN, TONE_DURATION);
             }
-            */
+        
             headerTones.push(frequency); // Store each tone in the array
             await changeTone(frequency, HEADER_TONE_DURATION);
         } else {
@@ -108,7 +107,7 @@ async function transmitHeader(senderCallsign, recipientCallsign, mode) {
 
     // End header with a calibration tone and a gap for separation
     await changeTone(CALIBRATION_TONE_MAX, 500);
-    await new Promise(resolve => setTimeout(resolve, 200)); // 200ms gap after header
+    await new Promise(resolve => setTimeout(resolve, 10)); // 10ms gap after header
     console.log('Header and calibration tone transmitted.');
 }
 
@@ -125,7 +124,7 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     // Transmit calibration tones before the header
     await changeTone(CALIBRATION_TONE_MIN, 500);
     await changeTone(CALIBRATION_TONE_MAX, 500);
-    await new Promise(resolve => setTimeout(resolve, 200)); // Gap after calibration
+    await new Promise(resolve => setTimeout(resolve, 10)); // Gap after calibration
 
     // Transmit encoded header data
     await transmitHeader(senderCallsign, recipientCallsign, mode);
@@ -139,9 +138,10 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     // Transmit tones for image data with calibration tones between characters
     for (let i = 0; i < tones.length; i++) {
         // Before each character, insert calibration tone
+        await changeTone(CALIBRATION_TONE_MIN, TONE_DURATION);
         if (i % 32 === 0 && i !== 0) {
             // After every 32nd character (end of line), use MAX calibration tone
-            await changeTone(CALIBRATION_TONE_MAX, 60);
+            await changeTone(CALIBRATION_TONE_MAX, TONE_DURATION);
         }
         // Transmit character tone from the selected tone map
         await changeTone(tones[i], TONE_DURATION);
@@ -156,7 +156,7 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
 }
 
 
-// Countdown logic to schedule transmission on every 3rd minute +7 seconds from a fixed epoch
+// Countdown logic to schedule transmission on every x minute +7 seconds from a fixed epoch
 function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode) {
     const transmitButton = document.getElementById('transmit-button');
     const now = new Date();
@@ -166,7 +166,7 @@ function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode)
     const timeSinceEpoch = now.getTime() - epoch.getTime();
 
     // Calculate how many milliseconds are in a 3-minute interval
-    const intervalMs = 3 * 60 * 1000;
+    const intervalMs = TX_INTERVAL * 60 * 1000;
 
     // Calculate the next 3-minute interval after the epoch
     const nextInterval = new Date(epoch.getTime() + Math.ceil(timeSinceEpoch / intervalMs) * intervalMs);
