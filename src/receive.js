@@ -7,15 +7,15 @@ let RX_headerData = {};
 let RX_currentPixel = 0;
 const RX_startTime = 6; // Start at + x seconds
 const RX_endTime = 15; // Timeout if no calibration tone detected by +15 seconds
-const RX_INTERVAL = .5 // RX trigger interval
+const RX_INTERVAL = 1 // RX trigger interval
 // Array to store tone data for analysis
 let RX_toneDataLog = [];
 let RX_receivedFrequencies = []; // an array for all samples
 let errorCount = 0; // Variable to count errors during decoding
 
 // Constants for RX tone processing
-const RX_MIN_TONE_FREQ = 975; // Hz
-const RX_MAX_TONE_FREQ = 1125; // Hz
+const RX_MIN_TONE_FREQ = 950; // Hz
+const RX_MAX_TONE_FREQ = 1350; // Hz
 const RX_BANDWIDTH = RX_MAX_TONE_FREQ - RX_MIN_TONE_FREQ; // bandwidth
 const RX_TONE_DURATION = 100; // milliseconds per tone
 const RX_HEADER_TONE_DURATION = 100; // milliseconds for header tones
@@ -23,14 +23,14 @@ const NUM_COLORS = 32;
 const SAMPLE_FACTOR = 1.25; // divider number for the period of time to sample the tone i.e. 3 would be 1/3 of the total tone period, higher number is faster but less
 
 // Constants for easy adjustment and testing
-const RX_FFT_SIZE = 8192;          // Adjust fftSize for time resolution (was 32768)
-const RX_AMPLITUDE_THRESHOLD = -70; // Adjust amplitude threshold in dB (was -90)
-const RX_ANALYSIS_INTERVAL = 5;     // Adjust analysis interval in milliseconds
-const RX_REQUIRED_SAMPLES_PER_TONE = 3;
+const RX_FFT_SIZE = 4096;          // Adjust fftSize for time resolution (was 32768)
+const RX_AMPLITUDE_THRESHOLD = -50; // Adjust amplitude threshold in dB (was -90)
+const RX_ANALYSIS_INTERVAL = 1;     // Adjust analysis interval in milliseconds
+const RX_REQUIRED_SAMPLES_PER_TONE = 5;
 
 // Calibration tones for error correction
 const RX_CALIBRATION_TONE_MIN = 950; // Hz
-const RX_CALIBRATION_TONE_MAX = 1150; // Hz
+const RX_CALIBRATION_TONE_MAX = 1350; // Hz
 
 let RX_receivedMinCalibrationTone = null;
 let RX_receivedMaxCalibrationTone = null;
@@ -38,23 +38,27 @@ let RX_calibrationOffset = 0;
 let RX_audioContext, RX_analyser, RX_microphoneStream, RX_dataArray, RX_bufferLength;
 let RX_collectingFrequencies = false;
 
-// Frequency map for decoding header (A-Z, 0-9, and '-')
+// Adjusted RX_CHAR_FREQ_MAP for a 350 Hz bandwidth, with 9.72 Hz spacing for each tone.
 const RX_CHAR_FREQ_MAP = {
-    'A': 975, 'B': 979, 'C': 983, 'D': 987, 'E': 991, 'F': 995, 'G': 999, 'H': 1003,
-    'I': 1007, 'J': 1011, 'K': 1015, 'L': 1019, 'M': 1023, 'N': 1027, 'O': 1031, 'P': 1035,
-    'Q': 1039, 'R': 1043, 'S': 1047, 'T': 1051, 'U': 1055, 'V': 1059, 'W': 1063, 'X': 1067,
-    'Y': 1071, 'Z': 1075, '0': 1079, '1': 1083, '2': 1087, '3': 1091, '4': 1095, '5': 1099,
-    '6': 1103, '7': 1107, '8': 1111, '9': 1115, '-': 1119, ' ': 1125
+    'A': 975, 'B': 984.72, 'C': 994.44, 'D': 1004.16, 'E': 1013.88, 'F': 1023.6, 'G': 1033.32, 'H': 1043.04,
+    'I': 1052.76, 'J': 1062.48, 'K': 1072.2, 'L': 1081.92, 'M': 1091.64, 'N': 1101.36, 'O': 1111.08, 'P': 1120.8,
+    'Q': 1130.52, 'R': 1140.24, 'S': 1149.96, 'T': 1159.68, 'U': 1169.4, 'V': 1179.12, 'W': 1188.84, 'X': 1198.56,
+    'Y': 1208.28, 'Z': 1218, '0': 1227.72, '1': 1237.44, '2': 1247.16, '3': 1256.88, '4': 1266.6, '5': 1276.32,
+    '6': 1286.04, '7': 1295.76, '8': 1305.48, '9': 1315.2, '-': 1324.92, ' ': 1334.64
 };
 
-// Define constants for tone mapping
+
+// RX_32C_TONE_MAP: Derived from RX_CHAR_FREQ_MAP
 const RX_32C_TONE_MAP = [
-    975, 979, 983, 987, 991, 995, 999, 1003,
-    1007, 1011, 1015, 1019, 1023, 1027, 1031, 1035,
-    1039, 1043, 1047, 1051, 1055, 1059, 1063, 1067,
-    1071, 1075, 1079, 1083, 1087, 1091, 1095, 1099
+    975, 984.72, 994.44, 1004.16, 1013.88, 1023.6, 1033.32, 1043.04,
+    1052.76, 1062.48, 1072.2, 1081.92, 1091.64, 1101.36, 1111.08, 1120.8,
+    1130.52, 1140.24, 1149.96, 1159.68, 1169.4, 1179.12, 1188.84, 1198.56,
+    1208.28, 1218, 1227.72, 1237.44, 1247.16, 1256.88, 1266.6, 1276.32
 ];
-const RX_4T_TONE_MAP = [975, 1023, 1075, 1099];
+
+// RX_4T_TONE_MAP: Derived from RX_CHAR_FREQ_MAP
+const RX_4T_TONE_MAP = [975, 1072.2, 1179.12, 1276.32];
+
 
 // Collect all expected frequencies into an array
 const RX_EXPECTED_FREQUENCIES = [
@@ -98,8 +102,8 @@ function RX_processMicrophoneInput() {
     const nyquist = RX_audioContext.sampleRate / 2;
     const binWidth = nyquist / RX_bufferLength; // Frequency per bin
 
-    const lowBin = Math.floor((925 / nyquist) * RX_bufferLength);
-    const highBin = Math.ceil((1175 / nyquist) * RX_bufferLength);
+    const lowBin = Math.floor((RX_MIN_TONE_FREQ / nyquist) * RX_bufferLength);
+    const highBin = Math.ceil((RX_MAX_TONE_FREQ / nyquist) * RX_bufferLength);
 
     // Find the peak bin within the frequency range
     for (let i = lowBin; i <= highBin; i++) {
@@ -197,7 +201,7 @@ function RX_calculateCalibrationOffset() {
 
 // Snapping function to find the closest frequency in the expected frequencies or return 0 if outside range
 function snapToClosestFrequency(frequency) {
-    const threshold = 2; // Threshold to consider frequency as valid
+    const threshold = 4; // Threshold to consider frequency as valid
     let closestFrequency = RX_EXPECTED_FREQUENCIES.reduce((closest, curr) =>
         Math.abs(curr - frequency) < Math.abs(closest - frequency) ? curr : closest
     );
@@ -221,13 +225,13 @@ function processCollectedFrequencies(data,type) {
         const freq = frequencies[i];
 
         // Check for spacer tone or frequency change
-        if ((freq === 950 || freq === 1150) || (lastFrequency !== null && freq !== lastFrequency)) {
+        if ((freq === RX_CALIBRATION_TONE_MIN || freq === RX_CALIBRATION_TONE_MAX) || (lastFrequency !== null && freq !== lastFrequency)) {
             // If currentGroup has 3 or more consecutive frequencies, push it to result
             if (currentGroup.length >= RX_REQUIRED_SAMPLES_PER_TONE) {
                 result.push(currentGroup[0]);
             }
             // Reset currentGroup for new frequency, skipping spacer tones
-            currentGroup = (freq === 950 || freq === 1150) ? [] : [freq];
+            currentGroup = (freq === RX_CALIBRATION_TONE_MIN || freq === RX_CALIBRATION_TONE_MAX) ? [] : [freq];
         } else {
             currentGroup.push(freq);
         }
@@ -290,7 +294,7 @@ function RX_validateHeader(headerString) {
 
 // Function to find the closest character based on frequency
 function findClosestChar(frequency) {
-    const threshold = 2; // Threshold to consider frequency as valid
+    const threshold = 4; // Threshold to consider frequency as valid
     let closestChar = null;
     let minDiff = Infinity;
     for (const [char, freq] of Object.entries(RX_CHAR_FREQ_MAP)) {

@@ -1,11 +1,11 @@
 console.log('transmit.js loaded');
 
 // Constants for tone frequency and timing
-const TONE_DURATION = 100; // milliseconds per tone
+const TONE_DURATION = 75; // milliseconds per tone
 const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
-const CALIBRATION_TONE_MAX = 1150; // Hz, calibration tone end
-const HEADER_TONE_DURATION = 100; // milliseconds for header tones
-const TX_INTERVAL = 3.5; // minutes between TX
+const CALIBRATION_TONE_MAX = 1350; // Hz, calibration tone end
+const HEADER_TONE_DURATION = 75; // milliseconds for header tones
+const TX_INTERVAL = 1; // minutes between TX
 // Toggle smooth transitions on or off
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
 
@@ -13,23 +13,27 @@ const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitio
 // Object to store tone log data
 let toneLog = [];
 
-// Frequency map for encoding header (A-Z, 0-9, and '-')
+// Adjusted RX_CHAR_FREQ_MAP for a 350 Hz bandwidth, with 9.72 Hz spacing for each tone.
 const CHAR_FREQ_MAP = {
-    'A': 975, 'B': 979, 'C': 983, 'D': 987, 'E': 991, 'F': 995, 'G': 999, 'H': 1003, 
-    'I': 1007, 'J': 1011, 'K': 1015, 'L': 1019, 'M': 1023, 'N': 1027, 'O': 1031, 'P': 1035, 
-    'Q': 1039, 'R': 1043, 'S': 1047, 'T': 1051, 'U': 1055, 'V': 1059, 'W': 1063, 'X': 1067, 
-    'Y': 1071, 'Z': 1075, '0': 1079, '1': 1083, '2': 1087, '3': 1091, '4': 1095, '5': 1099, 
-    '6': 1103, '7': 1107, '8': 1111, '9': 1115, '-': 1119, ' ': 1125
+    'A': 975, 'B': 984.72, 'C': 994.44, 'D': 1004.16, 'E': 1013.88, 'F': 1023.6, 'G': 1033.32, 'H': 1043.04,
+    'I': 1052.76, 'J': 1062.48, 'K': 1072.2, 'L': 1081.92, 'M': 1091.64, 'N': 1101.36, 'O': 1111.08, 'P': 1120.8,
+    'Q': 1130.52, 'R': 1140.24, 'S': 1149.96, 'T': 1159.68, 'U': 1169.4, 'V': 1179.12, 'W': 1188.84, 'X': 1198.56,
+    'Y': 1208.28, 'Z': 1218, '0': 1227.72, '1': 1237.44, '2': 1247.16, '3': 1256.88, '4': 1266.6, '5': 1276.32,
+    '6': 1286.04, '7': 1295.76, '8': 1305.48, '9': 1315.2, '-': 1324.92, ' ': 1334.64
 };
 
-// Define constants for tone mapping
+
+// RX_32C_TONE_MAP: Derived from RX_CHAR_FREQ_MAP
 const TX_32C_TONE_MAP = [
-    975, 979, 983, 987, 991, 995, 999, 1003,
-    1007, 1011, 1015, 1019, 1023, 1027, 1031, 1035,
-    1039, 1043, 1047, 1051, 1055, 1059, 1063, 1067,
-    1071, 1075, 1079, 1083, 1087, 1091, 1095, 1099
+    975, 984.72, 994.44, 1004.16, 1013.88, 1023.6, 1033.32, 1043.04,
+    1052.76, 1062.48, 1072.2, 1081.92, 1091.64, 1101.36, 1111.08, 1120.8,
+    1130.52, 1140.24, 1149.96, 1159.68, 1169.4, 1179.12, 1188.84, 1198.56,
+    1208.28, 1218, 1227.72, 1237.44, 1247.16, 1256.88, 1266.6, 1276.32
 ];
-const TX_4T_TONE_MAP = [975, 1023, 1075, 1099];
+
+// RX_4T_TONE_MAP: Derived from RX_CHAR_FREQ_MAP
+const TX_4T_TONE_MAP = [975, 1072.2, 1179.12, 1276.32];
+
 
 
 let txAudioContext = null;
