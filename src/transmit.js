@@ -23,6 +23,16 @@ const CHAR_FREQ_MAP = {
     '6': 1103, '7': 1107, '8': 1111, '9': 1115, '-': 1119, ' ': 1125
 };
 
+// Define constants for tone mapping
+const TX_32C_TONE_MAP = [
+    975, 979, 983, 987, 991, 995, 999, 1003,
+    1007, 1011, 1015, 1019, 1023, 1027, 1031, 1035,
+    1039, 1043, 1047, 1051, 1055, 1059, 1063, 1067,
+    1071, 1075, 1079, 1083, 1087, 1091, 1095, 1099
+];
+const TX_4T_TONE_MAP = [975, 1023, 1075, 1099];
+
+
 let txAudioContext = null;
 let oscillator = null;
 let gainNode = null;
@@ -118,12 +128,11 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     // Transmit encoded header data
     await transmitHeader(senderCallsign, recipientCallsign, mode);
 
-    // Map each color in gridData to a tone
-    let modeVal = 32;
-    if (mode === "4T") {
-        modeVal = 4;
-    }
-    const tones = gridData.map(colorIndex => MIN_TONE_FREQ + (colorIndex * (BANDWIDTH / modeVal)));
+    // Select the tone map based on the mode
+    const toneMap = mode === "4T" ? TX_4T_TONE_MAP : TX_32C_TONE_MAP;
+
+    // Map each color in gridData to a tone from the selected tone map
+    const tones = gridData.map(colorIndex => toneMap[colorIndex]);
 
     // Transmit tones for image data with calibration tones between characters
     for (let i = 0; i < tones.length; i++) {
@@ -135,7 +144,7 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
             // Use MIN calibration tone between characters
             await changeTone(CALIBRATION_TONE_MIN, 60);
         }
-        // Transmit character tone
+        // Transmit character tone from the selected tone map
         await changeTone(tones[i], TONE_DURATION);
     }
 
@@ -146,6 +155,7 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     // Log tone transmission data
     console.log("Tone Transmission Log:", toneLog);
 }
+
 
 // Countdown logic to schedule transmission on every 3rd minute +7 seconds from a fixed epoch
 function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode) {

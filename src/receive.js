@@ -41,8 +41,13 @@ const RX_CHAR_FREQ_MAP = {
 };
 
 // Define constants for tone mapping
-const RX_32C_TONE_MAP = Array.from({ length: 32 }, (_, i) => RX_MIN_TONE_FREQ + i * (RX_BANDWIDTH / 32));
-const RX_4T_TONE_MAP = Array.from({ length: 4 }, (_, i) => RX_MIN_TONE_FREQ + i * (RX_BANDWIDTH / 4));
+const RX_32C_TONE_MAP = [
+    975, 979, 983, 987, 991, 995, 999, 1003,
+    1007, 1011, 1015, 1019, 1023, 1027, 1031, 1035,
+    1039, 1043, 1047, 1051, 1055, 1059, 1063, 1067,
+    1071, 1075, 1079, 1083, 1087, 1091, 1095, 1099
+];
+const RX_4T_TONE_MAP = [975, 1023, 1075, 1099];
 
 // Collect all expected frequencies into an array
 const RX_EXPECTED_FREQUENCIES = [
