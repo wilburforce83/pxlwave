@@ -141,10 +141,7 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
         // Before each character, insert calibration tone
         if (i % 32 === 0 && i !== 0) {
             // After every 32nd character (end of line), use MAX calibration tone
-            await changeTone(CALIBRATION_TONE_MAX, 60);
-        } else {
-            // Use MIN calibration tone between characters
-            await changeTone(CALIBRATION_TONE_MIN, 60);
+            await changeTone(CALIBRATION_TONE_MAX, 90);
         }
         // Transmit character tone from the selected tone map
         await changeTone(tones[i], TONE_DURATION);
