@@ -4,7 +4,7 @@ console.log('transmit.js loaded');
 const MIN_TONE_FREQ = 975; // Hz
 const MAX_TONE_FREQ = 1125; // Hz
 const BANDWIDTH = MAX_TONE_FREQ - MIN_TONE_FREQ; // 150Hz bandwidth
-const TONE_DURATION = 90; // 50 milliseconds per tone
+const TONE_DURATION = 60; // 60 milliseconds per tone
 const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
 const CALIBRATION_TONE_MAX = 1150; // Hz, calibration tone end
 const HEADER_TONE_DURATION = 150; // 100 milliseconds for header tones
@@ -68,7 +68,7 @@ function initOscillator() {
     gainNode.gain.setValueAtTime(0, txAudioContext.currentTime);
 
     // Gradually ramp up gain at the start to avoid clicks
-    gainNode.gain.linearRampToValueAtTime(1, txAudioContext.currentTime + 0.05); // 50ms fade-in
+    gainNode.gain.linearRampToValueAtTime(1, txAudioContext.currentTime + 0.005); // 5ms fade-in
 
     oscillator.start(); // Start the continuous oscillator
 }
@@ -90,10 +90,12 @@ async function transmitHeader(senderCallsign, recipientCallsign, mode) {
         const char = headerString[i];
         const frequency = CHAR_FREQ_MAP[char];
         if (frequency) {
+            /*
             if (i !== 0) {
                 // Insert calibration tone between characters
                 await changeTone(CALIBRATION_TONE_MIN, 60);
             }
+            */
             headerTones.push(frequency); // Store each tone in the array
             await changeTone(frequency, HEADER_TONE_DURATION);
         } else {
