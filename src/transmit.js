@@ -6,7 +6,7 @@ const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
 const CALIBRATION_TONE_MAX = 1350; // Hz, calibration tone end
 const END_OF_LINE = 965; //Hz, end of line frequency
 const HEADER_TONE_DURATION = 75; // milliseconds for header tones
-const TX_INTERVAL = 3; // minutes between TX
+const TX_INTERVAL = 1; // minutes between TX
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
 let toneLog = []; // Object to store tone log data
 const CHAR_FREQ_MAP = { // RX_CHAR_FREQ_MAP for a 350 Hz bandwidth, with 9.72 Hz spacing for each tone.
@@ -133,7 +133,7 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
         await changeTone(CALIBRATION_TONE_MIN, TONE_DURATION);
         if (i % 32 === 0 && i !== 0) {
             // After every 32nd character (end of line), use END_OF_LINE tone
-            await changeTone(END_OF_LINE, TONE_DURATION);
+            await changeTone(END_OF_LINE, TONE_DURATION*2);
         }
         // Transmit character tone from the selected tone map
         await changeTone(tones[i], TONE_DURATION);
