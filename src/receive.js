@@ -27,7 +27,7 @@ const SAMPLE_FACTOR = 1.25; // divider number for the period of time to sample t
 
 // Constants for easy adjustment and testing
 const RX_FFT_SIZE = 4096;          // Adjust fftSize for time resolution (was 32768)
-const RX_AMPLITUDE_THRESHOLD = -80; // Adjust amplitude threshold in dB (was -90)
+const RX_AMPLITUDE_THRESHOLD = -120; // Adjust amplitude threshold in dB (was -90)
 const RX_ANALYSIS_INTERVAL = 3;     // Adjust analysis interval in milliseconds
 const RX_REQUIRED_SAMPLES_PER_TONE = 4;
 
@@ -234,7 +234,7 @@ function RX_startImageDecoding(mode) {
             console.log(`Processing all frequencies up to toneIndex ${toneIndex}`);
         }
         toneIndex++;
-    }, RX_TONE_DURATION *2.5);
+    }, RX_TONE_DURATION *2.1);
 
     function fillMissingTones(line, targetLength, toneMap) {
         const mostFrequentTone = getMostFrequentTone(line);
@@ -353,6 +353,7 @@ async function RX_saveTransmission() {
         sender: RX_headerData?.sender || "Unknown",
         recipient: RX_headerData?.recipient || "Unknown",
         type: RX_headerData?.type || "Unknown",
+       // qrzGrid: qrz.location || "Unknown",
         gridData: RX_gridData || [],
         quality: 95,
         errorCount: errorCount

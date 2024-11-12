@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Collections</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h2>My Collection</h2>
+        <div id="collections-grid" class="image-grid">
+            <!-- Cards will be dynamically inserted here -->
+        </div>
+    </div>
+
+   <!-- Modal for viewing larger card -->
+<div id="modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span id="modal-close" class="close">&times;</span>
+        <canvas id="modal-image" width="256" height="256"></canvas>
+        <div id="card-info">
+            <!-- Information will be dynamically updated -->
+        </div>
+        <button id="prev-card">Previous</button>
+        <button id="delete-card">Delete</button>
+        <button id="next-card">Next</button>
+    </div>
+</div>
+<script src="../src/pxlwaveConv.js" defer></script>
+    <script src="../src/collections.js" defer></script>
+    
+</body>
+</html>

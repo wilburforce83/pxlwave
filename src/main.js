@@ -80,6 +80,54 @@ async function createYourCardsWindow() {
     });
 }
 
+async function createCollectionsWindow() {
+    collectionsWindow = new BrowserWindow({
+        width: 800,
+        height: 600,
+        backgroundColor: '#1e1e1e',
+        parent: mainWindow,
+        resizable: false,
+        icon: path.join(__dirname, 'icons/app-icon.png'),
+        show: false,
+        webPreferences: {
+            contextIsolation: false,
+            nodeIntegration: true,
+        },
+    });
+
+    collectionsWindow.loadFile(path.join(__dirname, '../public/collections.html'));
+    collectionsWindow.webContents.openDevTools({ mode: 'detach' });
+    collectionsWindow.once('ready-to-show', () => {
+        collectionsWindow.show();
+    });
+
+    if (process.platform !== 'win32') {
+        const menuTemplate = [
+            {
+                label: 'File',
+                submenu: [
+                    {
+                        label: 'Quit',
+                        accelerator: 'CmdOrCtrl+Q',
+                        click: () => {
+                            collectionsWindow.close();
+                        }
+                    }
+                ]
+            }
+        ];
+        const menu = Menu.buildFromTemplate(menuTemplate);
+        collectionsWindow.setMenu(menu);
+    } else {
+        collectionsWindow.setMenu(null);
+    }
+
+    collectionsWindow.on('closed', () => {
+        collectionsWindow = null;
+    });
+}
+
+
 async function createPreferencesWindow() {
     preferencesWindow = new BrowserWindow({
         width: 650,
@@ -126,6 +174,10 @@ const menuTemplate = [
             {
                 label: 'Your Cards',
                 click: createYourCardsWindow,
+            },
+            {
+                label: 'Collections',
+                click: createCollectionsWindow,
             },
         ],
     },
@@ -199,12 +251,15 @@ ipcMain.handle('delete-card', async (event, cardId) => {
 // Handle loading all received images (collection)
 ipcMain.handle('load-collection', async () => {
     const store = await setupElectronStore();
-    return store.get('collection') || []; // Return all received images
+    let result = store.get('collection');
+    console.log(result)
+    return result || []; // Return all received images
 });
 
 // Handle saving a received image to the collection
 ipcMain.handle('save-to-collection', async (event, receivedData) => {
     const store = await setupElectronStore();
+    console.log(receivedData);
     const collection = store.get('collection', []); // Get existing collection
     receivedData.id = new Date().getTime(); // Generate a unique ID based on timestamp
     collection.push(receivedData); // Add the new received image
