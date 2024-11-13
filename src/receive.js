@@ -24,7 +24,6 @@ const RX_BANDWIDTH = RX_MAX_TONE_FREQ - RX_MIN_TONE_FREQ; // bandwidth
 const RX_TONE_DURATION = 100; // milliseconds per tone
 const RX_HEADER_TONE_DURATION = 100; // milliseconds for header tones
 const NUM_COLORS = 32;
-const SAMPLE_FACTOR = 1.25; // divider number for the period of time to sample the tone i.e. 3 would be 1/3 of the total tone period, higher number is faster but less
 
 // Constants for easy adjustment and testing
 const RX_FFT_SIZE = 4096;          // Adjust fftSize for time resolution (was 32768)

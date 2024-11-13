@@ -214,12 +214,4 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
     return R * c; // Distance in kilometers
 }
 
-// Example usage:
-const lat1 = 35.5; // Latitude for Last Vega (sample)
-const lon1 = -98.5; // Longitude for Last Vega (sample)
-const lat2 = 51.06; // Latitude for Rolvenden
-const lon2 = 0.65;  // Longitude for Rolvenden
-
-// const distance = haversineDistance(lat1, lon1, lat2, lon2);
-
 
