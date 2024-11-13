@@ -6,6 +6,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('callsign').value = preferences.callsign;
     document.getElementById('qrzUsername').value = preferences.qrzUsername;
     document.getElementById('qrzPassword').value = preferences.qrzPassword;
+    document.getElementById('lon').value = preferences.lon;
+    document.getElementById('lat').value = preferences.lat;
     document.getElementById('maidenheadGrid').value = preferences.maidenheadGrid;
     document.getElementById('units').value = preferences.units;
 
@@ -16,9 +18,18 @@ window.addEventListener('DOMContentLoaded', async () => {
             connectToQRZ: true,
             qrzUsername: document.getElementById('qrzUsername').value,
             qrzPassword: document.getElementById('qrzPassword').value,
+            lon: document.getElementById('lon').value,
+            lat: document.getElementById('lat').value,
             maidenheadGrid: document.getElementById('maidenheadGrid').value,
             units: document.getElementById('units').value,
         };
+
+        // Only include keys with valid values
+        Object.keys(updatedPreferences).forEach(key => {
+            if (updatedPreferences[key] === undefined || updatedPreferences[key] === null || updatedPreferences[key] === '') {
+                delete updatedPreferences[key];
+            }
+        });
 
         await ipcRenderer.invoke('save-preferences', updatedPreferences);
         window.close();

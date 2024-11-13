@@ -61,8 +61,8 @@ function drawWaterfall() {
 
     // Calculate the range of frequency bins that correspond to 900-1300 Hz
     const nyquist = audioContext.sampleRate / 2;
-    const lowBin = Math.floor((900 / nyquist) * analyser.frequencyBinCount);
-    const highBin = Math.ceil((1300 / nyquist) * analyser.frequencyBinCount);
+    const lowBin = Math.floor((925 / nyquist) * analyser.frequencyBinCount);
+    const highBin = Math.ceil((1375 / nyquist) * analyser.frequencyBinCount);
 
     // Number of bins in the selected range
     const numBins = highBin - lowBin + 1;
@@ -82,7 +82,15 @@ function drawWaterfall() {
         waterfallContext.fillStyle = `hsl(${hue}, ${saturation}%, ${brightness}%)`;
         waterfallContext.fillRect(x, 0, barWidth, 1);
     }
+
+    // Calculate amplitude in dB
+    const sum = dataArray.reduce((a, b) => a + b, 0);
+    const average = sum / dataArray.length;
+    const amplitudeDb = 20 * Math.log10(average / 255);
+    // Update the amplitude overlay with the calculated dB
+    document.getElementById('amplitude-overlay').textContent = `${amplitudeDb.toFixed(1)} dB`;
 }
+
 
 
 // Transmit button click handler with countdown and TX tag

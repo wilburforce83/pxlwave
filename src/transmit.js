@@ -1,11 +1,11 @@
 console.log('transmit.js loaded');
 
 // Constants for tone frequency and timing
-const TONE_DURATION = 75; // milliseconds per tone
+const TONE_DURATION = 80; // milliseconds per tone
 const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
 const CALIBRATION_TONE_MAX = 1350; // Hz, calibration tone end
 const END_OF_LINE = 965; //Hz, end of line frequency
-const HEADER_TONE_DURATION = 75; // milliseconds for header tones
+const HEADER_TONE_DURATION = 150; // milliseconds for header tones
 const TX_INTERVAL = 1; // minutes between TX
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
 let toneLog = []; // Object to store tone log data

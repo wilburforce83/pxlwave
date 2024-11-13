@@ -8,12 +8,13 @@ let RX_headerData = {};
 let RX_currentPixel = 0;
 const RX_startTime = 6; // Start at + x seconds
 const RX_endTime = 15; // Timeout if no calibration tone detected by +15 seconds
-const RX_INTERVAL = 1 // RX trigger interval
+const RX_INTERVAL = 4 // RX trigger interval
 let RX_toneDataLog = []; // Array to store tone data for analysis
 let RX_receivedFrequencies = []; // An array for all raw samples
 let RX_processedFrequencies = []; // An array for processed frequencies
 let RX_lineCount = 0;
 let errorCount = 0; // Variable to count errors during decoding
+
 
 // Constants for RX tone processing
 const RX_MIN_TONE_FREQ = 950; // Hz
@@ -27,7 +28,7 @@ const SAMPLE_FACTOR = 1.25; // divider number for the period of time to sample t
 
 // Constants for easy adjustment and testing
 const RX_FFT_SIZE = 4096;          // Adjust fftSize for time resolution (was 32768)
-const RX_AMPLITUDE_THRESHOLD = -120; // Adjust amplitude threshold in dB (was -90)
+const RX_AMPLITUDE_THRESHOLD = -37; // Adjust amplitude threshold in dB (was -90)
 const RX_ANALYSIS_INTERVAL = 3;     // Adjust analysis interval in milliseconds
 const RX_REQUIRED_SAMPLES_PER_TONE = 4;
 
@@ -192,7 +193,7 @@ function processCollectedFrequencies(data, type) {
         RX_lineCount = 0;
         setTimeout(() => RX_startImageDecoding(RX_headerData.type), RX_TONE_DURATION * 64 + RX_TONE_DURATION);
     }
-    console.log("RX_processedFrequencies length;",RX_processedFrequencies.length)
+    console.log("RX_processedFrequencies length;", RX_processedFrequencies.length)
 
 }
 
@@ -203,7 +204,7 @@ function RX_startImageDecoding(mode) {
     let currentLine = [];
 
     const intervalId = setInterval(() => {
-        if (toneIndex >= RX_processedFrequencies.length || toneIndex > (gridSize*gridSize)+(gridSize*2)) {
+        if (toneIndex >= RX_processedFrequencies.length || toneIndex > (gridSize * gridSize) + (gridSize * 2)) {
             // Finish decoding if all frequencies processed
             if (currentLine.length > 0 && currentLine.length < gridSize) {
                 fillMissingTones(currentLine, gridSize, toneMap);
@@ -234,7 +235,7 @@ function RX_startImageDecoding(mode) {
             console.log(`Processing all frequencies up to toneIndex ${toneIndex}`);
         }
         toneIndex++;
-    }, RX_TONE_DURATION *2.1);
+    }, RX_TONE_DURATION * 2.1);
 
     function fillMissingTones(line, targetLength, toneMap) {
         const mostFrequentTone = getMostFrequentTone(line);
@@ -272,18 +273,19 @@ function RX_validateHeader(headerString) {
     let [senderCallsign, recipientCallsign, mode] = headerParts;
 
     if (mode !== '32C' && mode !== '4T') {
-       // addToLog(`Invalid mode in header: "${mode}" (Expected "32C" or "4T")`);
+        // addToLog(`Invalid mode in header: "${mode}" (Expected "32C" or "4T")`);
         mode = '32C';
         errorCount++;
     }
-
-    document.getElementById('image-type').innerText = mode.trim();
-    document.getElementById('sender-callsign').innerText = senderCallsign.trim();
-    document.getElementById('recipient-callsign').innerText = recipientCallsign.trim();
-
-    RX_headerData = { sender: senderCallsign.trim(), recipient: recipientCallsign.trim(), type: mode.trim() };
+    document.getElementById('image-type').innerText = mode;
+    document.getElementById('sender-callsign').innerText = senderCallsign;
+    document.getElementById('recipient-callsign').innerText = recipientCallsign;
+RX_headerData = { sender: senderCallsign.trim(), recipient: recipientCallsign.trim(), type: mode.trim() };
     addToLog(`Header received: Type=${RX_headerData.type}, Sender=${RX_headerData.sender}, To=${RX_headerData.recipient}`);
     RX_headerReceived = true;
+    getCallsignMeta(senderCallsign);
+    
+
 }
 
 function RX_calculateCalibrationOffset() {
@@ -348,18 +350,36 @@ function RX_renderPixel(toneIndex, colorIndex) {
 async function RX_saveTransmission() {
     console.log(RX_processedFrequencies);
     RX_lineCount = 0;
+
+    // Construct the received image data object
     const receivedImage = {
+        id: new Date().getTime(), // Unique ID based on timestamp
         timestamp: new Date().toISOString(),
         sender: RX_headerData?.sender || "Unknown",
         recipient: RX_headerData?.recipient || "Unknown",
         type: RX_headerData?.type || "Unknown",
-       // qrzGrid: qrz.location || "Unknown",
+        qrzData: qrz || "Unknown", // Uncomment if qrz.location is available
         gridData: RX_gridData || [],
         quality: 95,
         errorCount: errorCount
     };
+
+    // Log the total errors
     addToLog(`Total errors during decoding: ${errorCount}`);
+
+    // Save the received image data to the collection in Electron Store
+    try {
+        const store = await setupElectronStore();
+        const collection = store.get('collection', []); // Get the existing collection or initialize it
+        collection.push(receivedImage); // Add the new received image data
+        store.set('collection', collection); // Save the updated collection back to the store
+        addToLog("Transmission saved to collection successfully.");
+    } catch (error) {
+        console.error("Error saving transmission to collection:", error);
+        addToLog("Error saving transmission to collection.");
+    }
 }
+
 
 function startRXCountdown(timeUntilNextListen) {
     const countdownTag = document.getElementById('countdowntag');
@@ -411,23 +431,6 @@ function RX_startListening() {
 function toggleRxTag(active) {
     rxTag.classList.toggle('tag-inactive', !active);
     rxTag.classList.toggle('tag-rx', active);
-}
-
-function saveFrequenciesToFile() {
-    const dataToSave = {
-        timestamp: new Date().toISOString(),
-        frequencies: RX_processedFrequencies
-    };
-    const jsonString = JSON.stringify(dataToSave, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.download = `frequencies_${Date.now()}.json`;
-    link.href = window.URL.createObjectURL(blob);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(link.href);
-    addToLog(`Frequencies saved to JSON file.`);
 }
 
 RX_startListening();

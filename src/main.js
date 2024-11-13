@@ -131,7 +131,7 @@ async function createCollectionsWindow() {
 async function createPreferencesWindow() {
     preferencesWindow = new BrowserWindow({
         width: 650,
-        height: 350,
+        height: 380,
         backgroundColor: '#1e1e1e',
         parent: mainWindow,
         resizable: false,
@@ -311,17 +311,20 @@ ipcMain.handle('load-preferences', async () => {
         qrzUsername: store.get('qrzUsername', ''),
         qrzPassword: store.get('qrzPassword', ''),
         maidenheadGrid: store.get('maidenheadGrid', ''),
+        lon: store.get('lon', ''),
+        lat: store.get('lat', ''),
         units: store.get('units', 'KM'),
     };
 });
 
 ipcMain.handle('save-preferences', async (event, preferences) => {
     const store = await setupElectronStore();
-    store.set('callsign', preferences.callsign);
-    store.set('connectToQRZ', preferences.connectToQRZ);
-    store.set('qrzUsername', preferences.qrzUsername);
-    store.set('qrzPassword', preferences.qrzPassword);
-    store.set('maidenheadGrid', preferences.maidenheadGrid);
-    store.set('units', preferences.units);
-    return 'Preferences saved successfully!';
+    try {
+        // Set all preferences at once
+        store.set(preferences);
+        return 'Preferences saved successfully!';
+    } catch (error) {
+        console.error("Error saving preferences:", error);
+        throw error;
+    }
 });
