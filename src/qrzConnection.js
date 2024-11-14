@@ -10,22 +10,76 @@ let qrzToken = '';
 
 // XML token collection
 
-async function getSessionKey() {
 
-    qrzPref = await ipcRenderer.invoke('load-preferences');
-    if (qrzPref.qrzUsername != "") {
-        qrzUser = qrzPref.qrzUsername;
-        qrzPassword = qrzPref.qrzPassword;
-        tokenURL = `https://xmldata.qrz.com/xml/?username=${qrzUser};password=${qrzPassword}`
-    } else {
-        return "Unable to connect with QRZ without log in credentials";
-    }
+// Get Callisgn data via XML
 
+// Modified getCallsignMeta function with error handling
+async function getCallsignMeta(callsign) {
     try {
+        const sessionKey = await getSessionKey();
+        if (!sessionKey) {
+            console.log('Session key is undefined or invalid.');
+            return;
+        }
+        console.log('Session Key:', sessionKey);
+
+        const requestURL = `https://xmldata.qrz.com/xml/current/?s=${sessionKey};callsign=${callsign}`;
+        const data = await getCallsignData(requestURL);
+        if (!data) {
+            console.log('Callsign data is undefined or invalid.');
+            return;
+        }
+        console.log('Callsign Data:', data);
+
+        const { fname, name, addr2, country, grid } = data;
+
+        // Get geolocation of callsign
+        const coords = await getLatLon(addr2, country);
+        if (!coords) {
+            console.log('Coordinates not found.');
+            return;
+        }
+        console.log('Coordinates:', coords);
+
+        // Distance of transmission
+        let distance = haversineDistance(coords.lat, coords.lon, qrzPref.lat, qrzPref.lon);
+        qrz = {
+            fname: fname || '',
+            name: name || '',
+            distance: distance || 0,
+            address: addr2 || '',
+            country: country || '',
+            grid: grid || ''
+        };
+        console.log(callsign, qrz);
+
+        document.getElementById('distance').innerText = Math.round(qrz.distance);
+        addToLog(`${callsign} is about ${Math.round(qrz.distance)} km away from you`);
+
+        return qrz;
+
+    } catch (error) {
+        console.error('Error in getCallsignMeta:', error);
+        // Swallow the error and allow the rest of the code to continue
+        return;
+    }
+}
+
+// Modified getSessionKey function with error handling
+async function getSessionKey() {
+    try {
+        qrzPref = await ipcRenderer.invoke('load-preferences');
+        if (qrzPref.qrzUsername && qrzPref.qrzPassword) {
+            qrzUser = qrzPref.qrzUsername;
+            qrzPassword = qrzPref.qrzPassword;
+            tokenURL = `https://xmldata.qrz.com/xml/?username=${qrzUser};password=${qrzPassword}`;
+        } else {
+            console.log("QRZ login credentials are missing.");
+            return null;
+        }
+
         const response = await fetch(tokenURL);
-        console.log('response', response);
         const xmlText = await response.text();
-        console.log('text', xmlText);
 
         // Parse the XML using DOMParser
         const parser = new DOMParser();
@@ -34,7 +88,8 @@ async function getSessionKey() {
         // Check for parser errors
         const parserError = xmlDoc.getElementsByTagName("parsererror");
         if (parserError.length > 0) {
-            throw new Error("Error parsing XML");
+            console.log("Error parsing XML");
+            return null;
         }
 
         // Extract the <Key> value
@@ -42,19 +97,20 @@ async function getSessionKey() {
         const sessionKey = keyElement ? keyElement.textContent : null;
 
         if (!sessionKey) {
-            throw new Error("Session key not found in the XML response");
+            console.log("Session key not found in the XML response");
+            return null;
         }
 
         // Return the session key
         return sessionKey;
+
     } catch (error) {
-        console.error('Error fetching or parsing XML:', error);
-        throw error;
+        console.error('Error in getSessionKey:', error);
+        return null;
     }
-};
+}
 
-// Get Callisgn data via XML
-
+// Modified getCallsignData function with error handling
 async function getCallsignData(url) {
     try {
         const response = await fetch(url);
@@ -67,7 +123,8 @@ async function getCallsignData(url) {
         // Check for parser errors
         const parserError = xmlDoc.getElementsByTagName("parsererror");
         if (parserError.length > 0) {
-            throw new Error("Error parsing XML");
+            console.log("Error parsing XML");
+            return null;
         }
 
         // Get the namespace URI from the root element
@@ -84,14 +141,15 @@ async function getCallsignData(url) {
         const subExp = getElementText('SubExp', sessionElement);
 
         if (!subExp) {
-            throw new Error("SubExp not found in XML");
+            console.log("SubExp not found in XML");
         }
 
         // Extract required data from <Callsign>
         const callsignElement = xmlDoc.getElementsByTagNameNS(namespaceURI, 'Callsign')[0];
 
         if (!callsignElement) {
-            throw new Error("Callsign element not found in XML");
+            console.log("Callsign element not found in XML");
+            return null;
         }
 
         const data = {};
@@ -111,73 +169,25 @@ async function getCallsignData(url) {
         return data;
 
     } catch (error) {
-        console.error('Error fetching or parsing XML:', error);
-        throw error;
+        console.error('Error in getCallsignData:', error);
+        return null;
     }
 }
-// examlpe
-function getCallsignMeta(callsign) {
-    getSessionKey()
-        .then(sessionKey => {
-            console.log('Session Key:', sessionKey);
-            // You can assign it to a constant if needed
-            const requestURL = `https://xmldata.qrz.com/xml/current/?s=${sessionKey};callsign=${callsign}`;
-            getCallsignData(requestURL)
-                .then(data => {
-                    console.log('Callsign Data:', data);
-                    // You can assign individual fields to constants if needed
-                    const { fname, name, addr2, country, grid } = data;
 
-                    //get geolocation of callsign
-
-                    getLatLon(addr2, country).then(coords => {
-                        console.log(coords); // Output: { lat: 51.046295900000004, lon: 0.6311262337054269 }
-                        // Distance of transmission:
-                        let distance = haversineDistance(coords.lat, coords.lon, qrzPref.lat, qrzPref.lon)
-                        qrz = {
-                            fname: fname,
-                            name: name,
-                            distance: distance,
-                            address: addr2,
-                            country: country,
-                            grid: grid || ''
-                        }
-                        console.log(callsign, qrz);
-
-                        document.getElementById('distance').innerText = Math.round(qrz.distance);
-                        addToLog(`${senderCallsign} is about ${qrz.distance} away from you`);
-
-                        return qrz;
-
-                    });
-                })
-                .catch(error => {
-                    console.error('Failed to get callsign data:', error);
-                });
-
-        })
-        .catch(error => {
-            console.error('Failed to get session key:', error);
-        });
-};
-
-// Estimate distance of transmission
-
-// Get geoloactions
-
+// Modified getLatLon function with error handling
 async function getLatLon(address1, address2) {
-    // Step 1: Format the address strings and join them
-    const joinedString = `${address1.replace(/ /g, '+')}+${address2.replace(/ /g, '+')}`;
-
-    // Step 2: Construct the API URL
-    const url = `https://nominatim.openstreetmap.org/search.php?q=${joinedString}&format=jsonv2`;
-
     try {
-        // Step 3: Fetch data from the API
+        // Format the address strings and join them
+        const joinedString = `${address1.replace(/ /g, '+')}+${address2.replace(/ /g, '+')}`;
+
+        // Construct the API URL
+        const url = `https://nominatim.openstreetmap.org/search.php?q=${joinedString}&format=jsonv2`;
+
+        // Fetch data from the API
         const response = await fetch(url);
         const data = await response.json();
 
-        // Step 4: Check if data exists and extract lat/lon from the first result
+        // Check if data exists and extract lat/lon from the first result
         if (data.length > 0) {
             const { lat, lon } = data[0];
             return {
@@ -185,15 +195,14 @@ async function getLatLon(address1, address2) {
                 lon: parseFloat(lon)
             };
         } else {
-            throw new Error("Location not found.");
+            console.log("Location not found.");
+            return null;
         }
     } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error in getLatLon:", error);
         return null;
     }
 }
-
-
 
 
 

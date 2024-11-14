@@ -1,33 +1,10 @@
 console.log('transmit.js loaded');
-
-// Constants for tone frequency and timing
-const TONE_DURATION = 80; // milliseconds per tone
-const CALIBRATION_TONE_MIN = 950; // Hz, calibration tone start
-const CALIBRATION_TONE_MAX = 1350; // Hz, calibration tone end
-const END_OF_LINE = 965; //Hz, end of line frequency
-const HEADER_TONE_DURATION = 150; // milliseconds for header tones
-const TX_INTERVAL = 1; // minutes between TX
-const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
 let toneLog = []; // Object to store tone log data
-const CHAR_FREQ_MAP = { // RX_CHAR_FREQ_MAP for a 350 Hz bandwidth, with 9.72 Hz spacing for each tone.
-    'A': 975, 'B': 984.72, 'C': 994.44, 'D': 1004.16, 'E': 1013.88, 'F': 1023.6, 'G': 1033.32, 'H': 1043.04,
-    'I': 1052.76, 'J': 1062.48, 'K': 1072.2, 'L': 1081.92, 'M': 1091.64, 'N': 1101.36, 'O': 1111.08, 'P': 1120.8,
-    'Q': 1130.52, 'R': 1140.24, 'S': 1149.96, 'T': 1159.68, 'U': 1169.4, 'V': 1179.12, 'W': 1188.84, 'X': 1198.56,
-    'Y': 1208.28, 'Z': 1218, '0': 1227.72, '1': 1237.44, '2': 1247.16, '3': 1256.88, '4': 1266.6, '5': 1276.32,
-    '6': 1286.04, '7': 1295.76, '8': 1305.48, '9': 1315.2, '-': 1324.92, ' ': 1334.64
-};
-const TX_32C_TONE_MAP = [ // RX_32C_TONE_MAP: Derived from RX_CHAR_FREQ_MAP
-    975, 984.72, 994.44, 1004.16, 1013.88, 1023.6, 1033.32, 1043.04,
-    1052.76, 1062.48, 1072.2, 1081.92, 1091.64, 1101.36, 1111.08, 1120.8,
-    1130.52, 1140.24, 1149.96, 1159.68, 1169.4, 1179.12, 1188.84, 1198.56,
-    1208.28, 1218, 1227.72, 1237.44, 1247.16, 1256.88, 1266.6, 1276.32
-];
-const TX_4T_TONE_MAP = [975, 1072.2, 1179.12, 1276.32]; // RX_4T_TONE_MAP: Derived from RX_CHAR_FREQ_MAP
-
 let txAudioContext = null;
 let oscillator = null;
 let gainNode = null;
 let countdownInterval = null;
+let TX_Active = false;
 
 // Function to change the oscillator frequency for each tone duration, with optional smooth transition
 async function changeTone(frequency, duration) {
@@ -35,7 +12,7 @@ async function changeTone(frequency, duration) {
     toneLog.push({ timestamp, frequency });
 
     if (USE_SMOOTH_TRANSITIONS) {
-        oscillator.frequency.linearRampToValueAtTime(frequency, txAudioContext.currentTime + 0.005);
+        oscillator.frequency.linearRampToValueAtTime(frequency, txAudioContext.currentTime + 0.02);
     } else {
         oscillator.frequency.setValueAtTime(frequency, txAudioContext.currentTime);
     }
@@ -122,7 +99,7 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     await transmitHeader(senderCallsign, recipientCallsign, mode);
 
     // Select the tone map based on the mode
-    const toneMap = mode === "4T" ? TX_4T_TONE_MAP : TX_32C_TONE_MAP;
+    const toneMap = mode === "4T" ? _4T_TONE_MAP : _32C_TONE_MAP;
 
     // Map each color in gridData to a tone from the selected tone map
     const tones = gridData.map(colorIndex => toneMap[colorIndex]);
@@ -140,6 +117,7 @@ async function startTransmission(gridData, senderCallsign, recipientCallsign, mo
     }
 
     toggleTxTag(false);
+    TX_Active = false;
     console.log('Transmission complete.');
     oscillator.stop(); // Stop oscillator after transmission
 
@@ -157,7 +135,7 @@ function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode)
     const timeSinceEpoch = now.getTime() - epoch.getTime();
 
     // Calculate how many milliseconds are in a 3-minute interval
-    const intervalMs = TX_INTERVAL * 60 * 1000;
+    const intervalMs = PROCESSING_INTERVAL * 60 * 1000;
 
     // Calculate the next 3-minute interval after the epoch
     const nextInterval = new Date(epoch.getTime() + Math.ceil(timeSinceEpoch / intervalMs) * intervalMs);
@@ -174,12 +152,13 @@ function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode)
         if (countdown <= 0) {
             clearInterval(countdownInterval);
             transmitButton.textContent = 'Transmit';
+            TX_Active = true;
             startTransmission(gridData, senderCallsign, recipientCallsign, mode);
         }
         countdown--;
     }, 1000);
 
-    addToLog(`Transmission scheduled for ${recipientCallsign}. Waiting for synchronized 3rd minute interval...`, "tx", senderCallsign);
+    addToLog(`Transmission scheduled for ${recipientCallsign}. Waiting for synchronized ${PROCESSING_INTERVAL} minute interval...`, "tx", senderCallsign);
 }
 
 // Export the startTransmission and scheduleTransmission functions
