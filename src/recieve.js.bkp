@@ -30,9 +30,9 @@ const RX_EXPECTED_FREQUENCIES = [
 // set up worker.js to offload RX_processMicrophoneInput();
 const worker = new Worker('../src/worker.js');
 
-worker.onmessage = function (event) {
+worker.onmessage = function(event) {
     const { detectedFrequency, magnitude } = event.data;
-    //  console.log(detectedFrequency,magnitude, RX_EXPECTED_FREQUENCIES);
+  //  console.log(detectedFrequency,magnitude, RX_EXPECTED_FREQUENCIES);
     if (detectedFrequency && magnitude > RX_AMPLITUDE_THRESHOLD) {
         RX_detectTone(detectedFrequency, magnitude);
     }
@@ -40,63 +40,55 @@ worker.onmessage = function (event) {
 
 
 
+
 async function RX_startMicrophoneStream() {
     try {
+        // Initialize Audio Context
         RX_audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Request access to the microphone
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         RX_microphoneStream = RX_audioContext.createMediaStreamSource(stream);
-        console.log("Microphone stream initialized:", stream);
+        console.log('Microphone stream initialized.');
 
-        let lastNode = RX_microphoneStream; // Start with the microphone stream
+        // Create a Band-Pass Filter to isolate expected frequencies
+        const bandPass = RX_audioContext.createBiquadFilter();
+        bandPass.type = 'bandpass';
+        bandPass.frequency.value = (MIN_TONE_FREQ + MAX_TONE_FREQ) / 2; // Center frequency
+        bandPass.Q.value = (MAX_TONE_FREQ - MIN_TONE_FREQ) / MIN_TONE_FREQ;
+        console.log('Band-pass filter configured.');
 
-        // Step 1: (Optional) Create Band-Pass Filter to isolate expected frequencies
-        if (RX_BANDPASS_STATE) {
-            const bandPass = RX_audioContext.createBiquadFilter();
-            bandPass.type = 'bandpass';
-            bandPass.frequency.value = (MIN_TONE_FREQ + MAX_TONE_FREQ) / 2; // Center frequency
-            bandPass.Q.value = (MAX_TONE_FREQ - MIN_TONE_FREQ) / MIN_TONE_FREQ; // Quality factor
-            console.log("Band-pass filter configured with center frequency:", bandPass.frequency.value);
-            const bandwidth = bandPass.frequency.value / bandPass.Q.value;
-            console.log("Effective Bandwidth:", bandwidth);
+        let lastNode = bandPass; // Track the last node for connection
 
-            RX_microphoneStream.connect(bandPass);
-            lastNode = bandPass; // Update the last node to the band-pass filter
-        } else {
-            console.log("Band-pass filter bypassed.");
-        }
-
-        // Step 2: (Optional) Add Dynamics Compressor for noise suppression
         if (RX_COMPRESSOR_STATE) {
+            // Create a Dynamics Compressor for basic noise suppression
             const compressor = RX_audioContext.createDynamicsCompressor();
-            compressor.threshold.setValueAtTime(RX_COMPRESSOR_THRESH, RX_audioContext.currentTime); // Less aggressive compression
+            compressor.threshold.setValueAtTime(RX_COMPRESSOR_THRESH, RX_audioContext.currentTime); // Adjust as needed
             compressor.knee.setValueAtTime(40, RX_audioContext.currentTime);
             compressor.ratio.setValueAtTime(12, RX_audioContext.currentTime);
             compressor.attack.setValueAtTime(0, RX_audioContext.currentTime);
             compressor.release.setValueAtTime(0.25, RX_audioContext.currentTime);
-            console.log("Compressor configured.");
+            console.log('Compressor configured.');
 
-            lastNode.connect(compressor);
+            // Connect Band-Pass Filter -> Compressor
+            bandPass.connect(compressor);
             lastNode = compressor; // Update the last node to the compressor
-        } else {
-            console.log("Compressor bypassed.");
         }
 
-        // Step 3: Create Analyser Node for frequency domain analysis
+        // Set up the Analyser Node with increased FFT size for better frequency resolution
         RX_analyser = RX_audioContext.createAnalyser();
-        RX_analyser.fftSize = FFT_SIZE; // Moderate FFT size for testing
+        RX_analyser.fftSize = FFT_SIZE;
         RX_bufferLength = RX_analyser.frequencyBinCount;
         RX_dataArray = new Float32Array(RX_bufferLength);
-        console.log("Analyzer configured with FFT size:", RX_analyser.fftSize);
 
         // Connect the last node to the analyser
         lastNode.connect(RX_analyser);
-
-        console.log("Audio processing chain connected: Microphone -> (Optional Band-Pass Filter) -> (Optional Compressor) -> Analyser");
+        console.log('Analyser connected.');
 
         // Start processing the microphone input
-       // RX_processMicrophoneInput();
+        RX_processMicrophoneInput();
     } catch (error) {
-        console.error("Error accessing microphone:", error);
+        console.error('Error accessing microphone:', error);
     }
 }
 
@@ -104,19 +96,19 @@ function RX_processMicrophoneInput() {
     RX_analyser.getFloatTimeDomainData(RX_dataArray);
 
     // Log raw data for debugging
-   // console.log("Raw Data Array:", RX_dataArray);
+    console.log('Raw Data Array:', RX_dataArray);
 
     const maxAmplitude = Math.max(...RX_dataArray);
     if (maxAmplitude < RX_AMPLITUDE_THRESHOLD) {
         // Skip processing if the signal is too weak
-      //  console.log("Signal too weak, max amplitude:", maxAmplitude);
+        console.log("Signal too weak, max amplitude:", maxAmplitude);
         setTimeout(RX_processMicrophoneInput, RX_ANALYSIS_INTERVAL);
         return;
     }
-   // console.log("Max Amplitude Detected:", maxAmplitude);
+    console.log('Max Amplitude Detected:', maxAmplitude);
 
     const samples = Array.from(RX_dataArray);
-
+    
     // Apply Hamming Window
     const windowedSamples = applyHammingWindow(samples);
 
@@ -130,14 +122,6 @@ function RX_processMicrophoneInput() {
     });
 
     setTimeout(RX_processMicrophoneInput, RX_ANALYSIS_INTERVAL);
-}
-
-
-function visualizeVolume() {
-    RX_analyser.getFloatTimeDomainData(RX_dataArray);
-    const maxAmplitude = Math.max(...RX_dataArray);
-    console.log('Volume Level:', maxAmplitude);
-    requestAnimationFrame(visualizeVolume);
 }
 
 function applyHammingWindow(samples) {
@@ -175,9 +159,9 @@ function RX_detectTone(frequency, amplitude) {
         if (snappedFrequency !== 0) { // Ignore invalid or out-of-threshold frequencies
             RX_receivedFrequencies.push(snappedFrequency);
             RX_toneDataLog.push({ timestamp, frequency, snappedFrequency });
-            //  console.log(`Collected frequency: ${snappedFrequency}`);
+          //  console.log(`Collected frequency: ${snappedFrequency}`);
         } else {
-            // console.warn(`Frequency out of range or invalid: ${frequency.toFixed(2)} Hz`);
+           // console.warn(`Frequency out of range or invalid: ${frequency.toFixed(2)} Hz`);
         }
     }
 }
@@ -186,7 +170,7 @@ function snapToClosestFrequency(frequency) {
     const threshold = RX_CALIBRATION_DRIFT;
     let closestFrequency = RX_EXPECTED_FREQUENCIES.reduce((closest, curr) =>
         Math.abs(curr - frequency) < Math.abs(closest - frequency) ? curr : closest
-        , RX_EXPECTED_FREQUENCIES[0]);
+    , RX_EXPECTED_FREQUENCIES[0]);
 
     if (Math.abs(closestFrequency - frequency) > threshold) {
         if (Math.abs(END_OF_LINE - frequency) <= threshold) {
@@ -282,21 +266,21 @@ function RX_startImageDecoding(mode) {
         if (toneIndex < RX_processedFrequencies.length) {
             
 */
-        const currentFreq = RX_processedFrequencies[toneIndex];
-        if (currentFreq === "EOL") {
-            // Render the completed line
-            if (currentLine.length < gridSize) {
-                fillMissingTones(currentLine, gridSize, decodetoneMap);
+const currentFreq = RX_processedFrequencies[toneIndex];
+            if (currentFreq === "EOL") {
+                // Render the completed line
+                if (currentLine.length < gridSize) {
+                    fillMissingTones(currentLine, gridSize, decodetoneMap);
+                }
+                renderLine(currentLine);
+                currentLine = [];
+                RX_lineCount++;
+                toneIndex++;
+                return;
             }
-            renderLine(currentLine);
-            currentLine = [];
-            RX_lineCount++;
-            toneIndex++;
-            return;
-        }
 
-        currentLine.push(currentFreq);
-        toneIndex++;
+            currentLine.push(currentFreq);
+            toneIndex++;
 
         //}
     }, TONE_DURATION * 3);
@@ -365,7 +349,7 @@ function RX_validateHeader(headerString) {
 }
 
 function RX_calculateCalibrationOffset() {
-    RX_calibrationOffset = 0// ((RX_receivedMinCalibrationTone + RX_receivedMaxCalibrationTone) / 2) - ((CALIBRATION_TONE_MIN + CALIBRATION_TONE_MAX) / 2);
+    RX_calibrationOffset = ((RX_receivedMinCalibrationTone + RX_receivedMaxCalibrationTone) / 2) - ((CALIBRATION_TONE_MIN + CALIBRATION_TONE_MAX) / 2);
     addToLog(`Calculated calibration offset: ${RX_calibrationOffset} Hz`);
 }
 
@@ -482,7 +466,7 @@ function RX_startListening() {
             toggleRxTag(true);
             RX_now = true;
             addToLog('Listening for tones...');
-            RX_processMicrophoneInput();
+            RX_startMicrophoneStream();
 
             RX_listeningTimeout = setTimeout(() => {
                 if (!RX_headerReceived) {
@@ -490,10 +474,10 @@ function RX_startListening() {
                     toggleRxTag(false);
                     RX_now = false;
                     resetDataAfterRX()
-                    // if (RX_microphoneStream) RX_microphoneStream.disconnect();
-                    // if (RX_audioContext) RX_audioContext.close();
+                    if (RX_microphoneStream) RX_microphoneStream.disconnect();
+                    if (RX_audioContext) RX_audioContext.close();
                 }
-                RX_startListening();
+                RX_startListening();    
             }, 15000);
         }
     }, timeUntilNextListen);
@@ -526,7 +510,6 @@ function resetDataAfterRX() {
     console.log('data reset for next RX');
 }
 
-RX_startMicrophoneStream();
 RX_startListening();
 
 
@@ -560,7 +543,7 @@ function filterFrequencies(array) {
 function dropRogueTones(rawArray) {
     // Array to store the filtered tones
     let dropMin = [];
-
+    
     // Temporary variables for tracking consecutive tones
     let currentTone = rawArray[0];
     let count = 0;

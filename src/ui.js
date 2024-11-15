@@ -61,8 +61,8 @@ function drawWaterfall() {
 
     // Calculate the range of frequency bins that correspond to 900-1300 Hz
     const nyquist = audioContext.sampleRate / 2;
-    const lowBin = Math.floor((925 / nyquist) * analyser.frequencyBinCount);
-    const highBin = Math.ceil((1375 / nyquist) * analyser.frequencyBinCount);
+    const lowBin = Math.floor((MIN_TONE_FREQ / nyquist) * analyser.frequencyBinCount);
+    const highBin = Math.ceil(((MIN_TONE_FREQ+BANDWIDTH) / nyquist) * analyser.frequencyBinCount);
 
     // Number of bins in the selected range
     const numBins = highBin - lowBin + 1;
