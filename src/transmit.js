@@ -36,7 +36,7 @@ function initOscillator() {
     gainNode.gain.setValueAtTime(0, txAudioContext.currentTime);
 
     // Gradually ramp up gain at the start to avoid clicks
-    gainNode.gain.linearRampToValueAtTime(1, txAudioContext.currentTime + 0.005); // 5ms fade-in
+    gainNode.gain.linearRampToValueAtTime(1, txAudioContext.currentTime + (TONE_DURATION * 0.15) / 1000); // 5ms fade-in
 
     oscillator.start(); // Start the continuous oscillator
 }

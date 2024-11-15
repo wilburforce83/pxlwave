@@ -27,72 +27,108 @@ const RX_EXPECTED_FREQUENCIES = [
     ...Object.values(CHAR_FREQ_MAP)
 ];
 
-// Start microphone stream for input processing
+// set up worker.js to offload RX_processMicrophoneInput();
+const worker = new Worker('../src/worker.js');
+
+worker.onmessage = function(event) {
+    const { detectedFrequency, magnitude } = event.data;
+  //  console.log(detectedFrequency,magnitude, RX_EXPECTED_FREQUENCIES);
+    if (detectedFrequency && magnitude > RX_AMPLITUDE_THRESHOLD) {
+        RX_detectTone(detectedFrequency, magnitude);
+    }
+};
+
+
+
+
 async function RX_startMicrophoneStream() {
+
+
     try {
+        // Initialize Audio Context
         RX_audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Request access to the microphone
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         RX_microphoneStream = RX_audioContext.createMediaStreamSource(stream);
+        
+        // Create a Band-Pass Filter to isolate expected frequencies
+        const bandPass = RX_audioContext.createBiquadFilter();
+        bandPass.type = 'bandpass';
+        bandPass.frequency.value = (MIN_TONE_FREQ + MAX_TONE_FREQ) / 2; // Center frequency
+        bandPass.Q.value = (MAX_TONE_FREQ - MIN_TONE_FREQ) / (MIN_TONE_FREQ * 2); // Quality factor
+
+        let lastNode = bandPass; // Track the last node for connection
+
+        if (RX_COMPRESSOR_STATE) {
+            // Create a Dynamics Compressor for basic noise suppression
+            const compressor = RX_audioContext.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(RX_COMPRESSOR_THRESH, RX_audioContext.currentTime); // Adjust as needed
+            compressor.knee.setValueAtTime(40, RX_audioContext.currentTime);
+            compressor.ratio.setValueAtTime(12, RX_audioContext.currentTime);
+            compressor.attack.setValueAtTime(0, RX_audioContext.currentTime);
+            compressor.release.setValueAtTime(0.25, RX_audioContext.currentTime);
+
+            // Connect Band-Pass Filter -> Compressor
+            bandPass.connect(compressor);
+            lastNode = compressor; // Update the last node to the compressor
+        }
+
+        // Set up the Analyser Node with increased FFT size for better frequency resolution
         RX_analyser = RX_audioContext.createAnalyser();
         RX_analyser.fftSize = FFT_SIZE;
         RX_bufferLength = RX_analyser.frequencyBinCount;
         RX_dataArray = new Float32Array(RX_bufferLength);
-        RX_microphoneStream.connect(RX_analyser);
+
+        // Connect the last node to the analyser
+        lastNode.connect(RX_analyser);
+
+        // Start processing the microphone input
         RX_processMicrophoneInput();
     } catch (error) {
         console.error('Error accessing microphone:', error);
     }
 }
 
+
 function RX_processMicrophoneInput() {
-    RX_analyser.getFloatFrequencyData(RX_dataArray);
-    let maxAmplitude = -Infinity;
-    let peakIndex = -1;
-    const nyquist = RX_audioContext.sampleRate / 2;
-    const binWidth = nyquist / RX_bufferLength;
-    const lowBin = Math.floor((MIN_TONE_FREQ / nyquist) * RX_bufferLength);
-    const highBin = Math.ceil((MAX_TONE_FREQ / nyquist) * RX_bufferLength);
-
-    for (let i = lowBin; i <= highBin; i++) {
-        const amplitude = RX_dataArray[i];
-        if (amplitude > maxAmplitude) {
-            maxAmplitude = amplitude;
-            peakIndex = i;
-        }
+    // Capture time domain data
+    const startTime = performance.now();
+    RX_analyser.getFloatTimeDomainData(RX_dataArray);
+    const maxAmplitude = Math.max(...RX_dataArray);
+    if (maxAmplitude < RX_AMPLITUDE_THRESHOLD) {
+        // Skip processing if the signal is too weak
+       console.log("signal too weak, max amplitude:",maxAmplitude);
+        setTimeout(RX_processMicrophoneInput, RX_ANALYSIS_INTERVAL);
+        return;
     }
+    const samples = Array.from(RX_dataArray);
+    
+    // Apply Hamming Window
+    const windowedSamples = applyHammingWindow(samples);
+    
+    // Send data to Web Worker for processing
+    worker.postMessage({
+        samples: windowedSamples,
+        sampleRate: RX_audioContext.sampleRate,
+        expectedFrequencies: RX_EXPECTED_FREQUENCIES,
+        calibrationOffset: RX_calibrationOffset,
+        amplitudeThreshold: RX_AMPLITUDE_THRESHOLD
+    });
 
-    if (peakIndex !== -1 && maxAmplitude >= RX_AMPLITUDE_THRESHOLD) {
-        let peakFrequency;
-
-        if (USE_QUADRATIC_INTERPOLATION) {
-            // Quadratic interpolation over bins
-            let mag0 = RX_dataArray[peakIndex - 1] || RX_dataArray[peakIndex];
-            let mag1 = RX_dataArray[peakIndex];
-            let mag2 = RX_dataArray[peakIndex + 1] || RX_dataArray[peakIndex];
-
-            mag0 = Math.pow(10, mag0 / 20);
-            mag1 = Math.pow(10, mag1 / 20);
-            mag2 = Math.pow(10, mag2 / 20);
-
-            const numerator = mag0 - mag2;
-            const denominator = 2 * (mag0 - 2 * mag1 + mag2);
-            const delta = denominator !== 0 ? numerator / denominator : 0;
-
-            const interpolatedIndex = peakIndex + delta;
-            peakFrequency = interpolatedIndex * binWidth;
-        } else {
-            // No interpolation, use the peak index directly
-            peakFrequency = peakIndex * binWidth;
-        }
-
-        RX_detectTone(peakFrequency, maxAmplitude);
-    }
-
+    const endTime = performance.now();
+    const processingTime = endTime - startTime;
+  // console.log(`Processing Time: ${processingTime.toFixed(2)} ms`);
+    // Continue processing at defined intervals
     setTimeout(RX_processMicrophoneInput, RX_ANALYSIS_INTERVAL);
 }
 
+function applyHammingWindow(samples) {
+    const N = samples.length;
+    return samples.map((sample, n) => sample * (0.54 - 0.46 * Math.cos((2 * Math.PI * n) / (N - 1))));
+}
 
-// Detect and log each tone to RX_receivedFrequencies
+
 function RX_detectTone(frequency, amplitude) {
     const timestamp = Date.now();
 
@@ -100,28 +136,57 @@ function RX_detectTone(frequency, amplitude) {
         if (Math.abs(frequency - CALIBRATION_TONE_MIN) <= RX_CALIBRATION_DRIFT) {
             RX_receivedMinCalibrationTone = frequency;
             RX_toneDataLog.push({ timestamp, frequency });
-            addToLog(`Received min calibration tone: ${frequency} Hz`);
+            addToLog(`Received min calibration tone: ${frequency.toFixed(2)} Hz`);
         }
     } else if (!RX_receivedMaxCalibrationTone) {
         if (Math.abs(frequency - CALIBRATION_TONE_MAX) <= RX_CALIBRATION_DRIFT) {
             RX_receivedMaxCalibrationTone = frequency;
             RX_toneDataLog.push({ timestamp, frequency });
-            addToLog(`Received max calibration tone: ${frequency} Hz (sync point)`);
+            addToLog(`Received max calibration tone: ${frequency.toFixed(2)} Hz (sync point)`);
             RX_calculateCalibrationOffset();
             RX_collectingFrequencies = true;
+
+            // Schedule processing of header and all frequencies
             setTimeout(() => processCollectedFrequencies(RX_receivedFrequencies, "HEADER"), HEADER_TONE_DURATION * 30 * 2);
             setTimeout(() => processCollectedFrequencies(RX_receivedFrequencies, "ALL"), (TONE_DURATION * 64) + 5000);
         }
     } else if (RX_collectingFrequencies) {
-        const adjustedFreq = Math.round(frequency * 1000) / 1000;
+        // Adjust frequency with calibration offset
+        const adjustedFreq = frequency - RX_calibrationOffset;
         const snappedFrequency = snapToClosestFrequency(adjustedFreq);
-        RX_receivedFrequencies.push(snappedFrequency);
-        RX_toneDataLog.push({ timestamp, frequency, snappedFrequency });
-        console.log('collecting frequencies');
+
+        if (snappedFrequency !== 0) { // Ignore invalid or out-of-threshold frequencies
+            RX_receivedFrequencies.push(snappedFrequency);
+            RX_toneDataLog.push({ timestamp, frequency, snappedFrequency });
+          //  console.log(`Collected frequency: ${snappedFrequency}`);
+        } else {
+           // console.warn(`Frequency out of range or invalid: ${frequency.toFixed(2)} Hz`);
+        }
     }
 }
 
+function snapToClosestFrequency(frequency) {
+    const threshold = RX_CALIBRATION_DRIFT;
+    let closestFrequency = RX_EXPECTED_FREQUENCIES.reduce((closest, curr) =>
+        Math.abs(curr - frequency) < Math.abs(closest - frequency) ? curr : closest
+    , RX_EXPECTED_FREQUENCIES[0]);
+
+    if (Math.abs(closestFrequency - frequency) > threshold) {
+        if (Math.abs(END_OF_LINE - frequency) <= threshold) {
+            return "EOL"; // Correctly identify EOL within threshold
+        } else {
+            errorCount++;
+            return 0; // Return 0 for silence or unexpected frequency
+        }
+    }
+
+    return closestFrequency === END_OF_LINE ? "EOL" : closestFrequency;
+}
+
+
+
 function processCollectedFrequencies(data, type) {
+    data = dropRogueTones(data);
     data = filterFrequencies(data);
     console.log('Process Collected Frequencies Tiggered', type, data);
     RX_processedFrequencies = [];
@@ -285,23 +350,6 @@ function RX_validateHeader(headerString) {
 function RX_calculateCalibrationOffset() {
     RX_calibrationOffset = ((RX_receivedMinCalibrationTone + RX_receivedMaxCalibrationTone) / 2) - ((CALIBRATION_TONE_MIN + CALIBRATION_TONE_MAX) / 2);
     addToLog(`Calculated calibration offset: ${RX_calibrationOffset} Hz`);
-}
-
-function snapToClosestFrequency(frequency) {
-    const threshold = RX_CALIBRATION_DRIFT;
-    let closestFrequency = RX_EXPECTED_FREQUENCIES.reduce((closest, curr) =>
-        Math.abs(curr - frequency) < Math.abs(closest - frequency) ? curr : closest
-    );
-    if (Math.abs(closestFrequency - frequency) > threshold) {
-        if (closestFrequency == END_OF_LINE) {
-            return "EOL"; // End of line element to prevent loss of EOL if low frequency is lost.
-        } else {
-            errorCount++;
-            return 0; // Return 0 for silence or unexpected frequency
-        }
-    }
-
-    return closestFrequency == END_OF_LINE ? "EOL" : closestFrequency;
 }
 
 function findClosestChar(frequency) {
@@ -489,4 +537,32 @@ function filterFrequencies(array) {
     }
 
     return result;
+}
+
+function dropRogueTones(rawArray) {
+    // Array to store the filtered tones
+    let dropMin = [];
+    
+    // Temporary variables for tracking consecutive tones
+    let currentTone = rawArray[0];
+    let count = 0;
+
+    // Loop through the raw array to count consecutive tones
+    for (let i = 0; i <= rawArray.length; i++) {
+        if (rawArray[i] === currentTone) {
+            // If the tone matches the current one, increment the count
+            count++;
+        } else {
+            // If the tone changes or we reach the end of the array
+            if (count >= RX_MIN_SAMPLES_PER_TONE) {
+                // Add the tone to the dropMin array if it meets the minimum sample requirement
+                dropMin.push(...Array(count).fill(currentTone));
+            }
+            // Reset for the new tone
+            currentTone = rawArray[i];
+            count = 1;
+        }
+    }
+
+    return dropMin;
 }
