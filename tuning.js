@@ -4,7 +4,7 @@
 const MIN_TONE_FREQ = 800;
 const BANDWIDTH = 1000;
 const FFT_SIZE = 16384; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
-const TONE_DURATION = 60; // milliseconds per tone
+const TONE_DURATION = 50; // milliseconds per tone
 const HEADER_TONE_DURATION = 60; // milliseconds for header tones
 
 // RX specific
