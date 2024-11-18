@@ -137,7 +137,7 @@ function scheduleTransmissionAfterInterval(nextInterval, transmissionData) {
             transmitButton.textContent = 'Transmit';
             TX_Active = true;
 
-            // Play the precompiled audio buffer
+            // Play the precompiled audio buffer immediately
             schedulePlaybackAudioBuffer();
         }
         countdown--;
