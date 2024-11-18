@@ -117,6 +117,7 @@ function scheduleTransmissionAfterInterval(nextInterval, transmissionData) {
 function startTransmission() {
     console.log(`[${new Date().toISOString()}] Transmission started.`);
     TX_Active = true;
+    toggleTxTag(true)
    
     playScheduledAudioBuffer();
 }
@@ -140,6 +141,7 @@ function playScheduledAudioBuffer() {
         const actualTransmissionTime = TX_stopTime - TX_startTime; // Calculate actual transmission time in milliseconds
         console.log(`[${new Date().toISOString()}] Transmission ended.`);
         console.log(`Actual Total Transmission Time: ${actualTransmissionTime} ms`);
+        toggleTxTag(false)
     };
 }
 
@@ -216,4 +218,11 @@ document.getElementById('transmit-button').addEventListener('click', () => {
     const mode = 'DEFAULT';
 
     scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode);
+
 });
+
+
+function toggleTxTag(active) {
+    txTag.classList.toggle('tag-inactive', !active);
+    txTag.classList.toggle('tag-tx', active);
+}
