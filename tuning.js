@@ -6,10 +6,13 @@ const BANDWIDTH = 1000;
 const FFT_SIZE = 16384; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
 const TONE_DURATION = 50; // milliseconds per tone
 const HEADER_TONE_DURATION = 60; // milliseconds for header tones
+const CALIBRATION_TONE_DURATION = 500;
+const GAP_DURATION = 5; // % of tone duration
+
 
 // RX specific
 const RX_AMPLITUDE_THRESHOLD_DB = -30; // Amplitute threshold in dB for accepting a tone (basically squelch)
-const RX_ANALYSIS_INTERVAL = 5;     // in ms the trigger interval for sampling
+const RX_ANALYSIS_INTERVAL = 2;     // in ms the trigger interval for sampling
 const RX_REQUIRED_SAMPLES_PER_TONE = 6; // how many consecutive saple of a tone required to confirm tone receipt
 const RX_MIN_SAMPLES_PER_TONE = 4;
 const RX_startTime = 6; // Start listening + x seconds past the minute
@@ -81,8 +84,17 @@ const CHAR_FREQ_MAP = toneMaps.CHAR_FREQ_MAP;
 const RX_SNAP_THRESHOLD = BANDWIDTH/85; // frequency snap threshold, when snapping to closest known frequency
 const RX_CALIBRATION_DRIFT = BANDWIDTH/7; // Snap threshold for calibration tone to be reconised as a calibration tone
 
-// Synchronisation: Frequency that tranmissions can be made in MINUTES 2 x 500ms calibration tone, 15 header tones, 1024 image tones (seperated with spacer tones)
-const PROCESSING_INTERVAL = Math.ceil(((TONE_DURATION*2*1024)+(HEADER_TONE_DURATION*2*15)+15000)/(1000*60));  
+/// Synchronization: Frequency that transmissions can be made in MINUTES
+const PROCESSING_INTERVAL = Math.ceil(
+    (
+        (TONE_DURATION * 1024 * (FEC ? 3 : 1)) +
+        (HEADER_TONE_DURATION * 3 * 15) +
+        5000
+    ) / (1000 * 60)
+);
+
+console.log('PROCESSING_INTERVAL:', PROCESSING_INTERVAL);
+
 // Convert Amplitude threshold from dB to linear
 const RX_AMPLITUDE_THRESHOLD = Math.pow(10, RX_AMPLITUDE_THRESHOLD_DB / 20); // Convert to linear scale
 // Helper functions
