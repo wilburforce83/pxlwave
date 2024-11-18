@@ -1,19 +1,34 @@
 // TX_worker.js - Worker script for managing transmission tasks
 
-// Listen for messages from transmit.js
 onmessage = function(e) {
-    const { action, data } = e.data;
-    switch(action) {
+    const { action, data, transmissionData } = e.data;
+    switch (action) {
         case 'generateToneSequence':
-            const toneSequence = generateToneSequence(data.gridData, data.toneMap);
-            postMessage({ action: 'toneSequenceGenerated', toneSequence });
+            if (data && data.gridData && data.toneMap) {
+                console.log('Worker: Generating tone sequence...');
+                const toneSequence = generateToneSequence(data.gridData, data.toneMap);
+                
+                // Send the generated tone sequence back
+                postMessage({ action: 'toneSequenceGenerated', toneSequence, transmissionData });
+                console.log('Worker: Tone sequence generated and sent to main thread.');
+            } else {
+                console.error('Worker: Missing required data for tone sequence generation.');
+            }
             break;
         case 'calculateNextInterval':
-            const nextInterval = calculateNextTransmissionInterval(data.now, data.epoch, data.intervalMs);
-            postMessage({ action: 'nextIntervalCalculated', nextInterval });
+            if (data && data.now && data.epoch && data.intervalMs) {
+                console.log('Worker: Calculating next interval...');
+                const nextInterval = calculateNextTransmissionInterval(data.now, data.epoch, data.intervalMs);
+                
+                // Send the calculated interval back
+                postMessage({ action: 'nextIntervalCalculated', nextInterval, transmissionData });
+                console.log('Worker: Next interval calculated and sent to main thread.');
+            } else {
+                console.error('Worker: Missing required data for interval calculation.');
+            }
             break;
         default:
-            console.error('Unknown action:', action);
+            console.error('Worker: Unknown action:', action);
     }
 };
 

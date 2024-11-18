@@ -23,6 +23,7 @@ const RX_COMPRESSOR_THRESH = -20;
 
 // TX Specific
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
+const FEC = true;
 
 /*
 

@@ -5,6 +5,8 @@ let waterfallSpeed = 2;
 let amplitudeIntensity = 100;
 let currentGridData = [];
 let originalGridData = [];
+let currentStream; // To keep track of the current audio stream
+let isDrawingWaterfall = false; // Flag to control the waterfall animation
 
 // Elements for TX and RX tags
 const txTag = document.getElementById('tx-tag');
@@ -13,14 +15,30 @@ const rxTag = document.getElementById('rx-tag');
 // Setup audio visualization with waterfall and waveform
 async function setupAudioVisualization() {
     try {
+        // Stop the current stream if it exists
+        if (currentStream) {
+            const tracks = currentStream.getTracks();
+            tracks.forEach(track => track.stop());
+        }
+
+        // Close the current AudioContext if it exists
+        if (audioContext) {
+            audioContext.close();
+        }
+
+        // Create a new AudioContext and setup analyser
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 8192; // Increased FFT size for better resolution
         dataArray = new Uint8Array(analyser.frequencyBinCount);
 
+        // Get the selected recording device
+        const deviceId = document.getElementById('recording-device').value;
         const stream = await navigator.mediaDevices.getUserMedia({
-            audio: { deviceId: { exact: document.getElementById('recording-device').value } }
+            audio: { deviceId: { exact: deviceId } }
         });
+        currentStream = stream; // Save the stream for later cleanup
+
         const source = audioContext.createMediaStreamSource(stream);
         source.connect(analyser);
 
@@ -30,12 +48,15 @@ async function setupAudioVisualization() {
         // Set up the slider controls
         setupControlSliders();
 
+        // Stop any existing waterfall animation
+
         // Start the waterfall display
         drawWaterfall();
     } catch (error) {
         console.error("Error setting up audio visualization:", error);
     }
 }
+
 
 // Function to set up event listeners for waterfall controls
 function setupControlSliders() {
@@ -53,42 +74,51 @@ function setupControlSliders() {
 }
 
 function drawWaterfall() {
-    setTimeout(() => requestAnimationFrame(drawWaterfall), 100 / waterfallSpeed);
-    analyser.getByteFrequencyData(dataArray);
+    if (isDrawingWaterfall) return; // Prevent multiple loops
+    isDrawingWaterfall = true;
 
-    // Draw previous waterfall image, shifted down by one pixel
-    waterfallContext.drawImage(waterfallCanvas, 0, 1);
+    function animate() {
+        if (!isDrawingWaterfall) return; // Stop the loop if the flag is false
 
-    // Calculate the range of frequency bins that correspond to 900-1300 Hz
-    const nyquist = audioContext.sampleRate / 2;
-    const lowBin = Math.floor((MIN_TONE_FREQ / nyquist) * analyser.frequencyBinCount);
-    const highBin = Math.ceil(((MIN_TONE_FREQ+BANDWIDTH) / nyquist) * analyser.frequencyBinCount);
+        setTimeout(() => requestAnimationFrame(animate), 100 / waterfallSpeed);
+        analyser.getByteFrequencyData(dataArray);
 
-    // Number of bins in the selected range
-    const numBins = highBin - lowBin + 1;
-    const barWidth = waterfallCanvas.width / numBins;
+        // Draw previous waterfall image, shifted down by one pixel
+        waterfallContext.drawImage(waterfallCanvas, 0, 1);
 
-    // Draw the bars for the frequency range 900-1300 Hz
-    for (let i = lowBin; i <= highBin; i++) {
-        const value = dataArray[i];
-        const percent = value / 255;
+        // Calculate the range of frequency bins that correspond to 900-1300 Hz
+        const nyquist = audioContext.sampleRate / 2;
+        const lowBin = Math.floor((MIN_TONE_FREQ / nyquist) * analyser.frequencyBinCount);
+        const highBin = Math.ceil(((MIN_TONE_FREQ + BANDWIDTH) / nyquist) * analyser.frequencyBinCount);
 
-        // Use a constant hue for green (120), adjust brightness and saturation
-        const hue = 120;
-        const saturation = 100;
-        const brightness = (percent * amplitudeIntensity * 0.5) + (100 - amplitudeIntensity);
+        // Number of bins in the selected range
+        const numBins = highBin - lowBin + 1;
+        const barWidth = waterfallCanvas.width / numBins;
 
-        const x = (i - lowBin) * barWidth;
-        waterfallContext.fillStyle = `hsl(${hue}, ${saturation}%, ${brightness}%)`;
-        waterfallContext.fillRect(x, 0, barWidth, 1);
+        // Draw the bars for the frequency range 900-1300 Hz
+        for (let i = lowBin; i <= highBin; i++) {
+            const value = dataArray[i];
+            const percent = value / 255;
+
+            // Use a constant hue for green (120), adjust brightness and saturation
+            const hue = 120;
+            const saturation = 100;
+            const brightness = (percent * amplitudeIntensity * 0.5) + (100 - amplitudeIntensity);
+
+            const x = (i - lowBin) * barWidth;
+            waterfallContext.fillStyle = `hsl(${hue}, ${saturation}%, ${brightness}%)`;
+            waterfallContext.fillRect(x, 0, barWidth, 1);
+        }
+
+        // Calculate amplitude in dB
+        const sum = dataArray.reduce((a, b) => a + b, 0);
+        const average = sum / dataArray.length;
+        const amplitudeDb = 20 * Math.log10(average / 255);
+        // Update the amplitude overlay with the calculated dB
+        document.getElementById('amplitude-overlay').textContent = `${amplitudeDb.toFixed(1)} dB`;
     }
 
-    // Calculate amplitude in dB
-    const sum = dataArray.reduce((a, b) => a + b, 0);
-    const average = sum / dataArray.length;
-    const amplitudeDb = 20 * Math.log10(average / 255);
-    // Update the amplitude overlay with the calculated dB
-    document.getElementById('amplitude-overlay').textContent = `${amplitudeDb.toFixed(1)} dB`;
+    animate(); // Start the animation
 }
 
 
@@ -175,14 +205,16 @@ async function loadAudioDevices() {
                 playbackSelect.appendChild(option);
             });
 
-        recordingSelect.addEventListener('change', () => {
-            ipcRenderer.send('set-recording-device', recordingSelect.value);
+        recordingSelect.addEventListener('change', async () => {
+            await setupAudioVisualization(); // Restart audio visualization when the device changes
         });
         playbackSelect.addEventListener('change', () => {
             ipcRenderer.send('set-playback-device', playbackSelect.value);
+            console.log('Playback device change;',playbackSelect.value);
         });
 
-        setupAudioVisualization();
+        // Initialize the audio visualization with the default device
+        await setupAudioVisualization();
         console.log("Waterfall display started automatically.");
     } catch (error) {
         console.error('Error loading audio devices:', error);
@@ -199,7 +231,7 @@ async function loadFirstCard() {
         originalGridData = firstCard.gridData.slice();
         currentGridData = firstCard.gridData;
         const preferences = await ipcRenderer.invoke('load-preferences');
-    document.getElementById('from-callsign').value = preferences.callsign;
+        document.getElementById('from-callsign').value = preferences.callsign;
     }
 }
 
@@ -276,9 +308,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Add a click event listener to the button
-    document.getElementById('clearlog-button').addEventListener('click', function() {
+    document.getElementById('clearlog-button').addEventListener('click', function () {
         // Clear the contents of the element with ID 'log'
         document.getElementById('log').innerHTML = '';
     });
+
+
+    const recordingSelect = document.getElementById('recording-device');
+    recordingSelect.addEventListener('change', async () => {
+        console.log('change recording device');
+        await restartMicrophoneStream();
+    });
+
 
 });

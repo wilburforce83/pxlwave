@@ -18,6 +18,7 @@ let RX_audioContext, RX_analyser, RX_microphoneStream, RX_dataArray, RX_bufferLe
 let RX_collectingFrequencies = false;
 let countdown = 5;
 let RX_now = false;
+let RX_isProcessing = false; // Flag to prevent duplicate processing loops
 
 // generate array of all expected frequencies
 const RX_EXPECTED_FREQUENCIES = [
@@ -42,6 +43,16 @@ worker.onmessage = function (event) {
 
 async function RX_startMicrophoneStream() {
     try {
+        // Stop and clean up the previous stream and context
+        if (RX_microphoneStream) {
+            const tracks = RX_microphoneStream.mediaStream.getTracks();
+            tracks.forEach(track => track.stop());
+        }
+        if (RX_audioContext) {
+            RX_audioContext.close();
+        }
+
+        // Create a new AudioContext and microphone stream
         RX_audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         RX_microphoneStream = RX_audioContext.createMediaStreamSource(stream);
@@ -93,44 +104,56 @@ async function RX_startMicrophoneStream() {
 
         console.log("Audio processing chain connected: Microphone -> (Optional Band-Pass Filter) -> (Optional Compressor) -> Analyser");
 
-        // Start processing the microphone input
-       // RX_processMicrophoneInput();
+        // Reset processing flag and start microphone processing
+        RX_isProcessing = false;
+        RX_processMicrophoneInput();
     } catch (error) {
         console.error("Error accessing microphone:", error);
     }
 }
 
 function RX_processMicrophoneInput() {
-    RX_analyser.getFloatTimeDomainData(RX_dataArray);
+    if (RX_isProcessing) return; // Prevent duplicate loops
+    RX_isProcessing = true;
 
-    // Log raw data for debugging
-   // console.log("Raw Data Array:", RX_dataArray);
+    function process() {
+        if (!RX_isProcessing) return; // Stop processing if the flag is false
 
-    const maxAmplitude = Math.max(...RX_dataArray);
-    if (maxAmplitude < RX_AMPLITUDE_THRESHOLD) {
-        // Skip processing if the signal is too weak
-      //  console.log("Signal too weak, max amplitude:", maxAmplitude);
-        setTimeout(RX_processMicrophoneInput, RX_ANALYSIS_INTERVAL);
-        return;
+        RX_analyser.getFloatTimeDomainData(RX_dataArray);
+
+        const maxAmplitude = Math.max(...RX_dataArray);
+        if (maxAmplitude < RX_AMPLITUDE_THRESHOLD) {
+            // Skip processing if the signal is too weak
+            setTimeout(process, RX_ANALYSIS_INTERVAL);
+            return;
+        }
+
+        const samples = Array.from(RX_dataArray);
+        const windowedSamples = applyHammingWindow(samples);
+
+        // Send data to Web Worker for processing
+        worker.postMessage({
+            samples: windowedSamples,
+            sampleRate: RX_audioContext.sampleRate,
+            expectedFrequencies: RX_EXPECTED_FREQUENCIES,
+            calibrationOffset: RX_calibrationOffset,
+            amplitudeThreshold: RX_AMPLITUDE_THRESHOLD
+        });
+
+        setTimeout(process, RX_ANALYSIS_INTERVAL);
     }
-   // console.log("Max Amplitude Detected:", maxAmplitude);
 
-    const samples = Array.from(RX_dataArray);
-
-    // Apply Hamming Window
-    const windowedSamples = applyHammingWindow(samples);
-
-    // Send data to Web Worker for processing
-    worker.postMessage({
-        samples: windowedSamples,
-        sampleRate: RX_audioContext.sampleRate,
-        expectedFrequencies: RX_EXPECTED_FREQUENCIES,
-        calibrationOffset: RX_calibrationOffset,
-        amplitudeThreshold: RX_AMPLITUDE_THRESHOLD
-    });
-
-    setTimeout(RX_processMicrophoneInput, RX_ANALYSIS_INTERVAL);
+    process(); // Start the processing loop
 }
+
+async function restartMicrophoneStream() {
+    RX_isProcessing = false; // Stop the current loop
+    if (RX_audioContext) RX_audioContext.close(); // Close the current audio context
+    await RX_startMicrophoneStream(); // Restart the microphone stream
+    console.log('audio stream restarted');
+}
+
+
 
 
 function visualizeVolume() {

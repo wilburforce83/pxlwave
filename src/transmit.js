@@ -1,128 +1,179 @@
-// transmit.js
-
 console.log('transmit.js loaded');
-let toneLog = []; // Object to store tone log data
+let txWorker = new Worker('../src/TX_worker.js');
 let txAudioContext = null;
-let oscillator = null;
 let gainNode = null;
-let countdownInterval = null;
-let TX_Active = false;
 let TX_startTime;
 let TX_stopTime;
+let TX_Active = false;
+let selectedOutputDeviceId = null;
+let scheduledAudioBuffer = null;
 
-// Web Worker for handling heavy transmission calculations
-const txWorker = new Worker('../src/TX_worker.js');
+// Worker message listener
+txWorker.onmessage = function (e) {
+    const { action, nextInterval, toneSequence, transmissionData } = e.data;
 
-// Function to handle messages from the worker
-txWorker.onmessage = function(e) {
-    const { action, data } = e.data;
-    switch(action) {
-        case 'toneSequenceGenerated':
-            startTransmittingToneSequence(data.toneSequence);
-            break;
+    switch (action) {
         case 'nextIntervalCalculated':
-            scheduleTransmissionAfterInterval(data.nextInterval);
+            if (nextInterval && transmissionData) {
+                console.log(`[${new Date().toISOString()}] Next interval calculated: ${nextInterval}`);
+                generateToneSequence(transmissionData); // Generate tone sequence immediately after scheduling
+                scheduleTransmissionAfterInterval(nextInterval, transmissionData);
+            } else {
+                console.error('Missing data for scheduling transmission:', nextInterval, transmissionData);
+            }
+            break;
+        case 'toneSequenceGenerated':
+            if (toneSequence && transmissionData) {
+                console.log(`[${new Date().toISOString()}] Tone sequence generated, starting to compile audio buffer.`);
+                precompileAudioBuffer(toneSequence);
+            } else {
+                console.error('Missing data for tone sequence generation:', toneSequence, transmissionData);
+            }
             break;
         default:
             console.error('Unknown action:', action);
     }
 };
 
-// Function to initialize and start the continuous audio stream with initial gain adjustments
-function initOscillator() {
-    txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    oscillator = txAudioContext.createOscillator();
-    gainNode = txAudioContext.createGain();
-
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(CALIBRATION_TONE_MIN, txAudioContext.currentTime); // Initial frequency
-    oscillator.connect(gainNode);
-    gainNode.connect(txAudioContext.destination);
-
-    // Set initial gain to 0 to prevent any clicks on start
-    gainNode.gain.setValueAtTime(0, txAudioContext.currentTime);
-
-    // Gradually ramp up gain at the start to avoid clicks
-    gainNode.gain.linearRampToValueAtTime(1, txAudioContext.currentTime + (TONE_DURATION * 0.075) / 1000); // 7.5% fade-in
-
-    oscillator.start(); // Start the continuous oscillator
-    TX_startTime = new Date();
-    console.log("TX_Start", TX_startTime);
+// Function to generate tone sequence
+function generateToneSequence(transmissionData) {
+    txWorker.postMessage({
+        action: 'generateToneSequence',
+        data: {
+            gridData: transmissionData.gridData,
+            toneMap: _32C_TONE_MAP
+        },
+        transmissionData: transmissionData
+    });
 }
 
-// Function to toggle the TX tag
-function toggleTxTag(active) {
-    txTag.classList.toggle('tag-inactive', !active);
-    txTag.classList.toggle('tag-tx', active);
+// Function to initialize audio context
+async function initAudioContext() {
+    if (!txAudioContext) {
+        txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (selectedOutputDeviceId) {
+        const audioDestination = await createAudioDestination(selectedOutputDeviceId);
+        gainNode = txAudioContext.createGain();
+        gainNode.connect(audioDestination);
+    } else {
+        gainNode = txAudioContext.createGain();
+        gainNode.connect(txAudioContext.destination);
+    }
+    console.log(`[${new Date().toISOString()}] Audio context initialized.`);
 }
 
-// Function to start transmitting the generated tone sequence
-async function startTransmittingToneSequence(toneSequence) {
-    toggleTxTag(true);
-    console.log('Starting continuous audio stream for transmission');
-    initOscillator(); // Initialize the continuous audio stream
+// Function to create an audio destination for a specific output device
+async function createAudioDestination(deviceId) {
+    try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: deviceId ? { exact: deviceId } : undefined } });
+        const audioDestination = txAudioContext.createMediaStreamDestination();
+        const source = txAudioContext.createMediaStreamSource(audioStream);
+        source.connect(audioDestination);
+        return audioDestination;
+    } catch (error) {
+        console.error('Error creating audio destination:', error);
+        throw error;
+    }
+}
 
-    toneLog = []; // Reset tone log at start
-
-    // Transmit calibration tones before the header
-    await changeTone(CALIBRATION_TONE_MAX, 500);
-    await new Promise(resolve => setTimeout(resolve, 10)); // Gap after calibration
-
-    // Transmit tones for image data
-    for (let i = 0; i < toneSequence.length; i++) {
-        // Transmit character tone from the selected tone map
-        await changeTone(toneSequence[i], TONE_DURATION);
+// Function to precompile the audio buffer
+function precompileAudioBuffer(toneSequence) {
+    if (!txAudioContext) {
+        console.error('Audio context is not available for precompiling the audio buffer.');
+        return;
     }
 
-    TX_stopTime = new Date();
-    toggleTxTag(false);
-    TX_Active = false;
-    console.log('Transmission complete.', TX_stopTime);
-    let TX_time = TX_stopTime - TX_startTime;
-    console.log(`TX: ${TX_time} ms`);
-    oscillator.stop(); // Stop oscillator after transmission
+    const bufferLength = txAudioContext.sampleRate * (toneSequence.length * TONE_DURATION / 1000);
+    const buffer = txAudioContext.createBuffer(1, bufferLength, txAudioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+    let bufferIndex = 0;
 
-    // Log tone transmission data
-    console.log("Tone Transmission Log:", toneLog);
+    toneSequence.forEach((frequency) => {
+        const toneLengthInSamples = txAudioContext.sampleRate * (TONE_DURATION / 1000);
+        for (let i = 0; i < toneLengthInSamples; i++) {
+            data[bufferIndex++] = Math.sin(2 * Math.PI * frequency * (i / txAudioContext.sampleRate));
+        }
+    });
+
+    scheduledAudioBuffer = buffer;
+    console.log(`[${new Date().toISOString()}] Audio buffer precompiled and ready.`);
 }
 
-// Main transmission function with tone logging
-async function startTransmission(gridData, senderCallsign, recipientCallsign, mode) {
-    console.log(`Transmitting header: ${senderCallsign} ${recipientCallsign} ${mode}`);
+// Function to schedule playback of the precompiled audio buffer
+function schedulePlaybackAudioBuffer() {
+    if (!txAudioContext || !scheduledAudioBuffer) {
+        console.error('Audio context or scheduled audio buffer is not available.');
+        return;
+    }
 
-    // Use the worker to generate tone sequence
-    txWorker.postMessage({ action: 'generateToneSequence', data: { gridData, toneMap: _32C_TONE_MAP } });
+    const source = txAudioContext.createBufferSource();
+    source.buffer = scheduledAudioBuffer;
+    source.connect(gainNode);
+    source.start();
+    source.onended = () => {
+        TX_stopTime = new Date();
+        TX_Active = false;
+        const actualTransmissionTime = TX_stopTime - TX_startTime;
+        console.log(`[${TX_stopTime.toISOString()}] Transmission complete.`);
+        console.log(`Actual Transmission Time: ${actualTransmissionTime} ms`);
+    };
+    TX_startTime = new Date();
+    console.log(`[${new Date().toISOString()}] Playback of audio buffer started.`);
 }
 
-// Countdown logic to schedule transmission on every x minute +7 seconds from a fixed epoch
-function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode) {
+// Function to schedule transmission at the next available interval
+function scheduleTransmissionAfterInterval(nextInterval, transmissionData) {
     const transmitButton = document.getElementById('transmit-button');
-    const now = new Date();
-    const epoch = new Date('1970-01-01T00:00:00Z'); // Fixed epoch start
+    const timeUntilTransmit = nextInterval.getTime() - new Date().getTime();
+    let countdown = Math.ceil(timeUntilTransmit / 1000);
 
-    // Calculate how many milliseconds are in a 3-minute interval
-    const intervalMs = PROCESSING_INTERVAL * 60 * 1000;
+    console.log(`[${new Date().toISOString()}] Transmission scheduled. Time until transmit: ${timeUntilTransmit} ms`);
 
-    // Use the worker to calculate the next transmission interval
-    txWorker.postMessage({ action: 'calculateNextInterval', data: { now, epoch, intervalMs } });
-
-    let countdown = Math.ceil(intervalMs / 1000);
-    countdownInterval = setInterval(() => {
+    const countdownInterval = setInterval(() => {
         transmitButton.textContent = `Transmit (${countdown}s)`;
         if (countdown <= 0) {
             clearInterval(countdownInterval);
             transmitButton.textContent = 'Transmit';
             TX_Active = true;
-            startTransmission(gridData, senderCallsign, recipientCallsign, mode);
+
+            // Play the precompiled audio buffer
+            schedulePlaybackAudioBuffer();
         }
         countdown--;
     }, 1000);
-
-    addToLog(`Transmission scheduled for ${recipientCallsign}. Waiting for synchronized ${PROCESSING_INTERVAL} minute interval...`, "tx", senderCallsign);
 }
 
-// Export the startTransmission and scheduleTransmission functions
-module.exports = {
-    startTransmission,
-    scheduleTransmission,
-};
+// Playback device selection listener
+document.getElementById('playback-device').addEventListener('change', async (event) => {
+    selectedOutputDeviceId = event.target.value;
+    console.log('Playback device changed:', selectedOutputDeviceId);
+
+    if (txAudioContext) {
+        // Close the current audio context and reinitialize with the new device
+        try {
+            await txAudioContext.close();
+            txAudioContext = null;
+            console.log('Reinitializing audio context with new playback device');
+        } catch (error) {
+            console.error('Error closing previous audio context:', error);
+        }
+    }
+});
+
+// Function to initiate the scheduling of a transmission
+function scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode) {
+    console.log(`[${new Date().toISOString()}] Transmission clicked`);
+    const now = new Date();
+    const epoch = new Date('1970-01-01T00:00:00Z');
+    const intervalMs = PROCESSING_INTERVAL * 60 * 1000;
+
+    const transmissionData = { gridData, senderCallsign, recipientCallsign, mode };
+
+    // Send message to worker to calculate next interval, with transmissionData included
+    txWorker.postMessage({
+        action: 'calculateNextInterval',
+        data: { now, epoch, intervalMs },
+        transmissionData: transmissionData
+    });
+}
