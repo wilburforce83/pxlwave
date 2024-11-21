@@ -75,6 +75,7 @@ async function scheduleTransmission(gridData, senderCallsign, recipientCallsign,
     const now = new Date();
     const epoch = new Date('1970-01-01T00:00:00Z');
     const intervalMs = PROCESSING_INTERVAL * 60 * 1000;
+    const transmitButton = document.getElementById('transmit-button');
 
     const transmissionData = { gridData, senderCallsign, recipientCallsign, mode };
 
@@ -88,6 +89,27 @@ async function scheduleTransmission(gridData, senderCallsign, recipientCallsign,
         },
         transmissionData: transmissionData
     });
+
+    // Update button text with countdown
+    // Calculate the next 3-minute interval after the epoch
+    // Calculate the time since the epoch in milliseconds
+    const timeSinceEpoch = now.getTime() - epoch.getTime();
+    const nextInterval = new Date(epoch.getTime() + Math.ceil(timeSinceEpoch / intervalMs) * intervalMs);
+    nextInterval.setUTCSeconds(7); // Set seconds to +7 as required
+    nextInterval.setUTCMilliseconds(0);
+
+    // Calculate the remaining time until the next interval
+    const timeUntilTransmit = nextInterval.getTime() - now.getTime();
+    let countdown = Math.ceil(timeUntilTransmit / 1000);
+    const countdownInterval = setInterval(() => {
+        transmitButton.textContent = `Transmit (${countdown}s)`;
+        if (countdown <= 0) {
+            clearInterval(countdownInterval);
+            transmitButton.textContent = 'Transmit';
+            startTransmission(gridData, senderCallsign, recipientCallsign, mode);
+        }
+        countdown--;
+    }, 1000);
 }
 
 // Function to initialize the audio context
@@ -208,18 +230,6 @@ function precompileAudioBuffer(toneSequence) {
     console.log(`Estimated Total Transmission Time: ${estimatedTransmissionTime} ms`);
     console.log(`[${new Date().toISOString()}] Audio buffer precompiled and ready.`);
 }
-
-// Event listener for Transmit button
-document.getElementById('transmit-button').addEventListener('click', () => {
-    // Replace these with actual values or obtain them from your UI
-    const gridData = generateSampleGridData(); // Function to generate or retrieve your 32x32 grid data
-    const senderCallsign = 'SENDER';
-    const recipientCallsign = 'RECIPIENT';
-    const mode = 'DEFAULT';
-
-    scheduleTransmission(gridData, senderCallsign, recipientCallsign, mode);
-
-});
 
 
 function toggleTxTag(active) {
