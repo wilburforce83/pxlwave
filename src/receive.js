@@ -59,6 +59,19 @@ function startRXCountdown(timeUntilNextListen) {
 // Start microphone stream
 async function RX_startMicrophoneStream(deviceId = null) {
     try {
+        // Wait for the UI to load available devices if "Loading devices..." is still selected
+        const recordingSelect = document.getElementById('recording-device');
+        while (recordingSelect && recordingSelect.value === "Loading devices...") {
+            console.log("Waiting for devices to load...");
+            await new Promise((resolve) => setTimeout(resolve, 500)); // Wait 500ms before checking again
+        }
+
+        // Automatically use the selected device if no deviceId is provided
+        if (!deviceId && recordingSelect) {
+            deviceId = recordingSelect.value; // Get the selected device ID
+        }
+
+        // Stop any existing microphone stream
         if (RX_microphoneStream) {
             RX_microphoneStream.mediaStream.getTracks().forEach((track) => track.stop());
         }
@@ -66,6 +79,7 @@ async function RX_startMicrophoneStream(deviceId = null) {
             RX_audioContext.close();
         }
 
+        // Initialize the audio context and analyser
         RX_audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const constraints = deviceId
             ? { audio: { deviceId: { exact: deviceId } } }
@@ -80,13 +94,15 @@ async function RX_startMicrophoneStream(deviceId = null) {
 
         RX_microphoneStream.connect(RX_analyser);
 
-        addToLog('Microphone stream initialized.');
+        addToLog(`Microphone stream initialized using device: ${deviceId || 'default'}`);
         RX_startListening();
     } catch (error) {
         console.error('Error initializing microphone stream:', error);
         addToLog('Failed to initialize microphone stream.');
     }
 }
+
+
 
 // Start RX process
 function RX_startListening() {

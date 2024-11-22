@@ -312,13 +312,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Clear the contents of the element with ID 'log'
         document.getElementById('log').innerHTML = '';
     });
-
-
-    const recordingSelect = document.getElementById('recording-device');
-    recordingSelect.addEventListener('change', async () => {
-        console.log('change recording device');
-        await restartMicrophoneStream();
-    });
-
-
 });
