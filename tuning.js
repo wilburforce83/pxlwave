@@ -11,7 +11,7 @@ const GAP_DURATION = 5; // % of tone duration
 
 
 // RX specific
-const RX_AMPLITUDE_THRESHOLD_DB = -30; // Amplitute threshold in dB for accepting a tone (basically squelch)
+const RX_AMPLITUDE_THRESHOLD_DB = -60; // Amplitute threshold in dB for accepting a tone (basically squelch)
 const RX_ANALYSIS_INTERVAL = 2;     // in ms the trigger interval for sampling
 const RX_REQUIRED_SAMPLES_PER_TONE = 6; // how many consecutive saple of a tone required to confirm tone receipt
 const RX_MIN_SAMPLES_PER_TONE = 4;
@@ -21,7 +21,7 @@ const USE_QUADRATIC_INTERPOLATION = true; // switch off for faster Analysis inte
 const USE_PARABOLIC_INTERPOLATION = false; // faster than quadratic interpolation but less accurate.
 const RX_COMPRESSOR_STATE = true; // Set to false to disable the compressor
 const RX_BANDPASS_STATE = true;
-const RX_COMPRESSOR_THRESH = -20;
+const RX_COMPRESSOR_THRESH = RX_AMPLITUDE_THRESHOLD_DB +10; // compression always set above the Amplitude threshold.
 
 
 // TX Specific

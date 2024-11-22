@@ -246,6 +246,24 @@ ipcMain.handle('delete-card', async (event, cardId) => {
     }
 });
 
+
+// RECEIVE PREFERENCES:
+
+ipcMain.handle('load-receive-preferences', async () => {
+    const store = await setupElectronStore(); // Initialize store here
+    return store.get('receivePreferences', {
+        RX_BANDPASS_STATE: true,
+        RX_COMPRESSOR_STATE: true,
+        RX_AMPLITUDE_THRESHOLD_DB: -75,
+    });
+});
+
+ipcMain.handle('save-receive-preferences', async (event, preferences) => {
+    const store = await setupElectronStore(); // Initialize store here
+    store.set('receivePreferences', preferences);
+    return { status: 'success', message: 'Preferences saved successfully!' };
+});
+
 // COLLECTION HANDLERS
 
 // Handle loading all received images (collection)

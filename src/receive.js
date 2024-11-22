@@ -63,7 +63,7 @@ async function RX_startMicrophoneStream(deviceId = null) {
         const recordingSelect = document.getElementById('recording-device');
         while (recordingSelect && recordingSelect.value === "Loading devices...") {
             console.log("Waiting for devices to load...");
-            await new Promise((resolve) => setTimeout(resolve, 500)); // Wait 500ms before checking again
+            await new Promise((resolve) => setTimeout(resolve, 100)); // Wait 100ms before checking again
         }
 
         // Automatically use the selected device if no deviceId is provided
@@ -94,6 +94,9 @@ async function RX_startMicrophoneStream(deviceId = null) {
 
         RX_microphoneStream.connect(RX_analyser);
 
+        // Start real-time amplitude monitoring
+        monitorAmplitude();
+
         addToLog(`Microphone stream initialized using device: ${deviceId || 'default'}`);
         RX_startListening();
     } catch (error) {
@@ -101,6 +104,26 @@ async function RX_startMicrophoneStream(deviceId = null) {
         addToLog('Failed to initialize microphone stream.');
     }
 }
+
+// Function to monitor and display amplitude in dB
+function monitorAmplitude() {
+    const amplitudeOverlay = document.getElementById('amplitude-overlay');
+    if (!amplitudeOverlay) {
+        console.error("Amplitude overlay element not found.");
+        return;
+    }
+
+    setInterval(() => {
+        RX_analyser.getFloatTimeDomainData(RX_dataArray);
+        const sum = RX_dataArray.reduce((a, b) => a + b, 0);
+        const average = sum / RX_dataArray.length;
+        const amplitudeDb = 20 * Math.log10(Math.abs(average) || 1e-10); // Avoid log of 0
+
+        amplitudeOverlay.textContent = `${amplitudeDb.toFixed(1)} dB`;
+    }, 250); // Update every 250ms (adjust as needed)
+}
+
+
 
 
 
@@ -188,3 +211,7 @@ function toggleRxTag(active) {
 (async () => {
     await RX_startMicrophoneStream();
 })();
+
+
+
+

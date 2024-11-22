@@ -115,7 +115,7 @@ function drawWaterfall() {
         const average = sum / dataArray.length;
         const amplitudeDb = 20 * Math.log10(average / 255);
         // Update the amplitude overlay with the calculated dB
-        document.getElementById('amplitude-overlay').textContent = `${amplitudeDb.toFixed(1)} dB`;
+       // document.getElementById('amplitude-overlay').textContent = `${amplitudeDb.toFixed(1)} dB`; // comment out to turn off overlay
     }
 
     animate(); // Start the animation
