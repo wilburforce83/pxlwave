@@ -1,56 +1,41 @@
-// RX_worker.js
-
-self.onmessage = function (event) {
-    const {
-        samples,
-        sampleRate,
-        expectedFrequencies,
-        calibrationOffset,
-        amplitudeThreshold,
-    } = event.data;
+self.onmessage = (event) => {
+    const { samples, sampleRate, expectedFrequencies, calibrationOffset } = event.data;
 
     try {
-        // Apply Hamming window to samples
         const windowedSamples = applyHammingWindow(samples);
-
-        // Analyze frequencies
         let detectedFrequency = null;
         let maxMagnitude = -Infinity;
 
+        const startTime = performance.now(); // Record the start time of the function execution
+
         for (const targetFreq of expectedFrequencies) {
-            const adjustedFreq = targetFreq + calibrationOffset;
+            const adjustedFreq = targetFreq + calibrationOffset; // Adjust frequency for calibration offset
             const magnitude = goertzel(windowedSamples, sampleRate, adjustedFreq);
 
-            if (magnitude > amplitudeThreshold && magnitude > maxMagnitude) {
+            if (magnitude > maxMagnitude) {
                 maxMagnitude = magnitude;
-                detectedFrequency = targetFreq; // Store the original frequency
+                detectedFrequency = targetFreq;
             }
         }
 
-        // Post detected frequency back to the main thread
-        const timestamp = Date.now(); // High-resolution timestamp
+        const endTime = performance.now(); // Record the end time
+        const duration = endTime - startTime; // Calculate the duration in milliseconds
+
         if (detectedFrequency) {
             self.postMessage({
                 detectedFrequency,
-                magnitude: maxMagnitude,
-                startTime: timestamp,
-                delta: PROCESSING_INTERVAL,
+                startTime,
+                duration, // Actual execution duration in ms
             });
         } else {
             self.postMessage({
                 detectedFrequency: null,
-                magnitude: null,
-                startTime: timestamp,
-                delta: PROCESSING_INTERVAL,
+                startTime,
+                duration,
             });
         }
     } catch (error) {
         console.error('Worker processing error:', error);
-        self.postMessage({
-            detectedFrequency: null,
-            magnitude: null,
-            error: error.message,
-        });
     }
 };
 
@@ -68,9 +53,9 @@ function goertzel(samples, sampleRate, targetFreq) {
     const sine = Math.sin(omega);
     const cosine = Math.cos(omega);
     const coeff = 2.0 * cosine;
-    let q0 = 0,
-        q1 = 0,
-        q2 = 0;
+    let q0 = 0;
+    let q1 = 0;
+    let q2 = 0;
 
     for (let i = 0; i < N; i++) {
         q0 = coeff * q1 - q2 + samples[i];
