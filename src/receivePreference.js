@@ -33,9 +33,9 @@ closeSettingsButton.addEventListener("click", closeSettingsModal);
     try {
         // Load receive preferences and populate fields
         const receivePreferences = await ipcRenderer.invoke('load-receive-preferences');
-        document.getElementById('bandpass-toggle').checked = receivePreferences.RX_BANDPASS_STATE || false;
-        document.getElementById('compression-toggle').checked = receivePreferences.RX_COMPRESSOR_STATE || false;
-        document.getElementById('amplitude-threshold').value = receivePreferences.RX_AMPLITUDE_THRESHOLD_DB || -60;
+        document.getElementById('bandpass-toggle').checked = receivePreferences.RX_BANDPASS_STATE;
+        document.getElementById('compression-toggle').checked = receivePreferences.RX_COMPRESSOR_STATE;
+        document.getElementById('amplitude-threshold').value = receivePreferences.RX_AMPLITUDE_THRESHOLD_DB;
 
         // Save preferences on click
         document.getElementById('save-settings').addEventListener('click', async () => {
@@ -55,7 +55,12 @@ closeSettingsButton.addEventListener("click", closeSettingsModal);
                     RX_COMPRESSOR_STATE: document.getElementById('compression-toggle').checked,
                     RX_AMPLITUDE_THRESHOLD_DB: amplitudeThreshold,
                 };
+                // Update Vars before restart
+                RX_BANDPASS_STATE = document.getElementById('bandpass-toggle').checked;
+                RX_COMPRESSOR_STATE = document.getElementById('compression-toggle').checked;
+                RX_AMPLITUDE_THRESHOLD_DB = amplitudeThreshold;
 
+console.log(updatedReceivePreferences);
                 // Save updated preferences
                 await ipcRenderer.invoke('save-receive-preferences', updatedReceivePreferences);
                 addToLog('Preferences saved successfully!');

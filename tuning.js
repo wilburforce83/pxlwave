@@ -1,5 +1,5 @@
 // File containing modulation tuning data
-
+const { ipcRenderer } = require('electron');
 // Modulation: these are the 5 big variables to change the modulation of pxlwave
 const MIN_TONE_FREQ = 800;
 const BANDWIDTH = 1000;
@@ -11,7 +11,7 @@ const GAP_DURATION = 5; // % of tone duration
 
 
 // RX specific
-const RX_AMPLITUDE_THRESHOLD_DB = -60; // Amplitute threshold in dB for accepting a tone (basically squelch)
+
 const RX_ANALYSIS_INTERVAL = 2;     // in ms the trigger interval for sampling
 const RX_REQUIRED_SAMPLES_PER_TONE = 6; // how many consecutive saple of a tone required to confirm tone receipt
 const RX_MIN_SAMPLES_PER_TONE = 4;
@@ -19,9 +19,8 @@ const RX_startTime = 6; // Start listening + x seconds past the minute
 const RX_endTime = 15; // Timeout if no calibration tone detected by +15 seconds
 const USE_QUADRATIC_INTERPOLATION = true; // switch off for faster Analysis intervals, but loose resolution as per chart below
 const USE_PARABOLIC_INTERPOLATION = false; // faster than quadratic interpolation but less accurate.
-const RX_COMPRESSOR_STATE = true; // Set to false to disable the compressor
-const RX_BANDPASS_STATE = true;
-const RX_COMPRESSOR_THRESH = RX_AMPLITUDE_THRESHOLD_DB +10; // compression always set above the Amplitude threshold.
+
+
 
 
 // TX Specific
@@ -95,8 +94,7 @@ const PROCESSING_INTERVAL = Math.ceil(
 
 console.log('PROCESSING_INTERVAL:', PROCESSING_INTERVAL);
 
-// Convert Amplitude threshold from dB to linear
-const RX_AMPLITUDE_THRESHOLD = Math.pow(10, RX_AMPLITUDE_THRESHOLD_DB / 20); // Convert to linear scale
+
 // Helper functions
 function generateToneMaps(MIN_TONE_FREQ, BANDWIDTH) {
     const reservedCalibrationBandwidth = BANDWIDTH / 7; // Reserve 50 Hz at each end for calibration
@@ -133,9 +131,30 @@ function generateToneMaps(MIN_TONE_FREQ, BANDWIDTH) {
         StepSize: stepSize
     };
 }
+//Prep Preferences
+var RX_COMPRESSOR_STATE = true;
+var RX_BANDPASS_STATE = true;
+var RX_AMPLITUDE_THRESHOLD_DB = -120;
+var RX_AMPLITUDE_THRESHOLD = 0;
+var RX_COMPRESSOR_THRESH = 0;
 
+async function getRXPref (){
+// Load preferences:
+try {
+// Load receive preferences and populate fields
+const receivePreferences = await ipcRenderer.invoke('load-receive-preferences');
+RX_COMPRESSOR_STATE = receivePreferences.RX_COMPRESSOR_STATE;
+RX_BANDPASS_STATE = receivePreferences.RX_BANDPASS_STATE;
+RX_AMPLITUDE_THRESHOLD_DB = receivePreferences.RX_AMPLITUDE_THRESHOLD_DB; // Amplitute threshold in dB for accepting a tone (basically squelch)
+RX_AMPLITUDE_THRESHOLD = Math.pow(10, RX_AMPLITUDE_THRESHOLD_DB / 20); // Convert to linear scale
+RX_COMPRESSOR_THRESH = RX_AMPLITUDE_THRESHOLD_DB +10; // compression always set above the Amplitude threshold.
+} catch (error) {
+    console.error('Error loading preferences:', error);
+    alert('Failed to load preferences. Please try again.');
+}
+};
 
-// Example usage:
+getRXPref();
 
 console.log("modulation specification:",toneMaps, END_OF_LINE);
 

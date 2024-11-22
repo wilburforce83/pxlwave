@@ -106,7 +106,6 @@ async function scheduleTransmission(gridData, senderCallsign, recipientCallsign,
         if (countdown <= 0) {
             clearInterval(countdownInterval);
             transmitButton.textContent = 'Transmit';
-            startTransmission(gridData, senderCallsign, recipientCallsign, mode);
         }
         countdown--;
     }, 1000);

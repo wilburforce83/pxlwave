@@ -1,5 +1,6 @@
 console.log('ui.js loaded');
-const { ipcRenderer } = require('electron');
+
+
 let audioContext, analyser, dataArray, waveformCanvas, waveformContext, waterfallCanvas, waterfallContext;
 let waterfallSpeed = 2;
 let amplitudeIntensity = 100;
