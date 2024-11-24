@@ -31,12 +31,22 @@ const RX_EXPECTED_FREQUENCIES = [
 
 // Initialize Web Worker
 RX_worker = new Worker('../src/RX_worker.js');
+// receive.js
+
 RX_worker.onmessage = (event) => {
-    const { detectedFrequency, startTime, duration } = event.data;
+    const { detectedFrequency, startTime, duration, maxMagnitude, frequencyMagnitudes } = event.data;
+    
+    // Log the magnitudes for each frequency
+    console.log('Frequency magnitudes:', frequencyMagnitudes);
+    
+    // Log the detected frequency and its magnitude
+    console.log(`Detected Frequency: ${detectedFrequency}, Magnitude: ${maxMagnitude}`);
+
     if (detectedFrequency) {
         RX_state.rawReceivedFrequencies.push({ startTime, duration, frequency: detectedFrequency });
     }
 };
+
 
 function startRXCountdown(timeUntilNextListen) {
     const countdownTag = document.getElementById('countdowntag');

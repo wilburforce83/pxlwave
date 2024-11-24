@@ -1,3 +1,5 @@
+// RX_worker.js
+
 self.onmessage = (event) => {
     const { samples, sampleRate, expectedFrequencies, calibrationOffset } = event.data;
 
@@ -5,12 +7,16 @@ self.onmessage = (event) => {
         const windowedSamples = applyHammingWindow(samples);
         let detectedFrequency = null;
         let maxMagnitude = -Infinity;
+        let frequencyMagnitudes = []; // Array to store magnitudes of all frequencies
 
         const startTime = performance.now(); // Record the start time of the function execution
 
         for (const targetFreq of expectedFrequencies) {
             const adjustedFreq = targetFreq + calibrationOffset; // Adjust frequency for calibration offset
             const magnitude = goertzel(windowedSamples, sampleRate, adjustedFreq);
+            
+            // Collect magnitudes for debugging
+            frequencyMagnitudes.push({ frequency: adjustedFreq, magnitude });
 
             if (magnitude > maxMagnitude) {
                 maxMagnitude = magnitude;
@@ -21,23 +27,18 @@ self.onmessage = (event) => {
         const endTime = performance.now(); // Record the end time
         const duration = endTime - startTime; // Calculate the duration in milliseconds
 
-        if (detectedFrequency) {
-            self.postMessage({
-                detectedFrequency,
-                startTime,
-                duration, // Actual execution duration in ms
-            });
-        } else {
-            self.postMessage({
-                detectedFrequency: null,
-                startTime,
-                duration,
-            });
-        }
+        self.postMessage({
+            detectedFrequency,
+            startTime,
+            duration,
+            maxMagnitude,
+            frequencyMagnitudes, // Send back the magnitudes array
+        });
     } catch (error) {
         console.error('Worker processing error:', error);
     }
 };
+
 
 // Utility: Apply Hamming window to samples
 function applyHammingWindow(samples) {
