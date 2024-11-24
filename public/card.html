@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Digital Trading Card</title>
+    <!-- Include Feather.css -->
+    <link rel="stylesheet" href="https://unpkg.com/feather.css/dist/feather.min.css">
+    <style>
+        /* Trading card dimensions with a 1:1.4 ratio */
+        .card {
+            width: 350px; /* Adjust as needed */
+            height: 490px; /* Width * 1.4 */
+            margin: 20px auto;
+            border: 2px solid #333;
+            border-radius: 15px;
+            overflow: hidden;
+            background-color: #f8f8f8;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+            font-family: 'Arial', sans-serif;
+            position: relative;
+        }
+        .card-header {
+            background-color: #d4af37; /* Gold color */
+            padding: 10px;
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #fff;
+        }
+        .card-image {
+            position: relative;
+            width: 100%;
+            height: auto;
+            text-align: center;
+            background-color: #fff;
+            border-bottom: 2px solid #333;
+        }
+        .card-image canvas.main-canvas {
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            background-color: #fafafa;
+        }
+        .card-image canvas.background-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1; /* Light opacity for background effect */
+            z-index: -1;
+        }
+        .card-content {
+            padding: 15px;
+        }
+        .card-description {
+            font-size: 1em;
+            margin-bottom: 15px;
+        }
+        .card-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1em;
+            font-weight: bold;
+        }
+        .card-stats div {
+            width: 48%;
+            text-align: center;
+            padding: 10px;
+            background-color: #eaeaea;
+            border-radius: 5px;
+        }
+        .card-footer {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="card-header">
+            Mystic Dragon
+        </div>
+        <div class="card-image">
+            <!-- Background Canvas for Oversized Image -->
+            <canvas class="background-canvas" width="350" height="350"></canvas>
+            <!-- Main 256x256 Canvas for Pixel Art -->
+            <canvas class="main-canvas" width="256" height="256"></canvas>
+        </div>
+        <div class="card-content">
+            <div class="card-description">
+                A legendary dragon known for its wisdom and power. It soars through the skies, commanding respect from all creatures.
+            </div>
+            <div class="card-stats">
+                <div>
+                    <span>Attack</span><br>
+                    <span>2500</span>
+                </div>
+                <div>
+                    <span>Defense</span><br>
+                    <span>2000</span>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            #001 • Legendary Creature
+        </div>
+    </div>
+
+    <!-- Include the pxlwaveConv.js script -->
+    <script>
+        // pxlwaveConv.js
+
+        // Define the color palette as an array
+        const colorPalette = [
+            "#000000", "#00021c", "#1c284d", "#343473", "#732866", "#2d5280", "#993649", "#d9214f",
+            "#a6216e", "#4d7a99", "#d94c87", "#7497a6", "#b36159", "#f25565", "#f28d85", "#f27961",
+            "#b38f24", "#b3b324", "#17735f", "#119955", "#2469b3", "#1ba683", "#67b31b", "#a3ccd9",
+            "#47cca9", "#96e3c9", "#f09c60", "#f0bb90", "#b3ccd9", "#f7c93e", "#f0edd8", "#0bafe6"
+        ];
+
+        // Function to render grid to canvas
+        function renderGridToCanvas(canvas, gridData, targetSize, drawGridLines = false) {
+            const ctx = canvas.getContext('2d');
+            const pixelSize = targetSize / 32; // Calculate pixel size based on target canvas size
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas before rendering
+
+            // Render each pixel color
+            for (let i = 0; i < 32; i++) {
+                for (let j = 0; j < 32; j++) {
+                    const colorIndex = gridData[i * 32 + j];
+                    const color = colorPalette[colorIndex];
+                    ctx.fillStyle = color;
+                    ctx.fillRect(j * pixelSize, i * pixelSize, pixelSize, pixelSize);
+                }
+            }
+
+            // Only draw grid overlay if drawGridLines is true
+            if (drawGridLines) {
+                ctx.strokeStyle = 'rgba(50, 50, 50, 0.8)'; // 1px dark grey grid lines
+                for (let x = 0; x <= targetSize; x += pixelSize) {
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, targetSize);
+                }
+                for (let y = 0; y <= targetSize; y += pixelSize) {
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(targetSize, y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        // Simple grid array to create a sample image (32x32 pixels)
+        const sampleGridData = new Array(1024).fill(0); // Initialize with color index 0 (black)
+
+        // Create a simple pattern (e.g., a smiley face)
+        function createSmiley(gridData) {
+            // Set background to a light color
+            gridData.fill(30); // Color index 30 (light color)
+
+            // Eyes
+            gridData[10 * 32 + 10] = 0; // Left eye
+            gridData[10 * 32 + 21] = 0; // Right eye
+
+            // Mouth
+            for (let x = 12; x <= 20; x++) {
+                gridData[22 * 32 + x] = 0; // Mouth line
+            }
+        }
+
+        createSmiley(sampleGridData);
+
+        // Get the canvases
+        const mainCanvas = document.querySelector('.main-canvas');
+        const backgroundCanvas = document.querySelector('.background-canvas');
+
+        // Render the main image
+        renderGridToCanvas(mainCanvas, sampleGridData, 256);
+
+        // Render the oversized background image
+        renderGridToCanvas(backgroundCanvas, sampleGridData, 350);
+
+    </script>
+
+</body>
+</html>
