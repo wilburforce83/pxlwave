@@ -11,10 +11,11 @@ self.onmessage = (event) => {
 
         const startTime = performance.now(); // Record the start time of the function execution
 
+        // Calculate magnitudes for all expected frequencies
         for (const targetFreq of expectedFrequencies) {
             const adjustedFreq = targetFreq + calibrationOffset; // Adjust frequency for calibration offset
             const magnitude = goertzel(windowedSamples, sampleRate, adjustedFreq);
-            
+
             // Collect magnitudes for debugging
             frequencyMagnitudes.push({ frequency: adjustedFreq, magnitude });
 
@@ -24,20 +25,49 @@ self.onmessage = (event) => {
             }
         }
 
+        // Calculate dynamic threshold using mean and standard deviation
+        const magnitudes = frequencyMagnitudes.map(({ magnitude }) => magnitude);
+        const meanMagnitude =
+            magnitudes.reduce((sum, magnitude) => sum + magnitude, 0) / magnitudes.length;
+
+        const variance =
+            magnitudes.reduce((sum, magnitude) => sum + Math.pow(magnitude - meanMagnitude, 2), 0) /
+            magnitudes.length;
+
+        const stdDeviation = Math.sqrt(variance);
+        const dynamicThreshold = meanMagnitude + (stdDeviation * 3.5); // Adjust multiplier as needed
+
+        // Filter out detected frequency if its magnitude is below the dynamic threshold
+        if (maxMagnitude < dynamicThreshold || maxMagnitude < 7) { // dynamic noise floor + minimum signal magnitude requirement
+          /*  console.log(
+                `Filtered out frequency: ${detectedFrequency} with magnitude ${maxMagnitude} (Threshold: ${dynamicThreshold})`
+            ); */
+            return; // Skip processing if below threshold
+        }
+       /* console.log(
+            `Passed frequency: ${detectedFrequency} with magnitude ${maxMagnitude} (Threshold: ${dynamicThreshold})`
+        ); */
+
         const endTime = performance.now(); // Record the end time
         const duration = endTime - startTime; // Calculate the duration in milliseconds
 
+        // Send back results
         self.postMessage({
             detectedFrequency,
             startTime,
             duration,
             maxMagnitude,
             frequencyMagnitudes, // Send back the magnitudes array
+            dynamicThreshold, // Include dynamic threshold for debugging
+            meanMagnitude,
+            stdDeviation,
         });
     } catch (error) {
         console.error('Worker processing error:', error);
     }
 };
+
+
 
 
 // Utility: Apply Hamming window to samples
