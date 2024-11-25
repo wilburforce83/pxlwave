@@ -1,6 +1,7 @@
 // receive.js - Refactored
 
 let RX_state = {
+    startTime: 0,
     headerReceived: false,
     imageStarted: false,
     currentPixel: 0,
@@ -8,7 +9,8 @@ let RX_state = {
     headerData: {},
     errorCount: 0,
     rawReceivedFrequencies: [], // Raw frequency collection
-    groupedFrequencies: [], // Grouped frequencies after majority voting
+    groupedHeaderFrequencies: [], // Grouped frequencies after majority voting
+    groupedImageFrequencies: [],
     toneLog: [],
     calibration: {
         minTone: null,
@@ -35,15 +37,31 @@ RX_worker = new Worker('../src/RX_worker.js');
 
 RX_worker.onmessage = (event) => {
     const { detectedFrequency, startTime, duration, maxMagnitude, frequencyMagnitudes } = event.data;
-    
+
+    const RXtime = startTime - RX_state.startTime;
+   // console.log(RXtime)
     // Log the magnitudes for each frequency
-  //  console.log('Frequency magnitudes:', frequencyMagnitudes);
-    
+  //  console.log('Start time', startTime);
+
     // Log the detected frequency and its magnitude
- // console.log(`Detected Frequency: ${detectedFrequency}, Magnitude: ${maxMagnitude}`);
+   //  console.log(`Detected Frequency: ${detectedFrequency}, Magnitude: ${maxMagnitude}`);
 
     if (detectedFrequency) {
         RX_state.rawReceivedFrequencies.push({ startTime, duration, frequency: detectedFrequency });
+    }
+    if (RXtime > 10000 && !RX_state.headerReceived) {
+        RX_state.headerReceived = true;
+        const HeaderFrequencies = headerFECArr();
+        console.log(HeaderFrequencies);
+        if (!HeaderFrequencies) {
+            RX_state.headerReceived = false;
+            console.error("Failed to process header frequencies.");
+            return;
+        }
+        
+        const headerTones = majorityVote(HeaderFrequencies);
+        console.log("Decoded Header Tones:", headerTones);
+        console.log(decodeHeaderAndUpdateUI(headerTones));
     }
 };
 
@@ -155,6 +173,7 @@ function RX_startListening() {
             toggleRxTag(true);
             RX_isListening = true;
             addToLog('Listening for tones...');
+            RX_state.startTime = performance.now();
             processMicrophoneInput();
 
             RX_listeningTimeout = setTimeout(() => {
@@ -192,7 +211,22 @@ function processMicrophoneInput() {
     setTimeout(processMicrophoneInput, PROCESSING_INTERVAL);
 }
 
-// Utility functions
+
+
+
+
+/* ********************************************
+                                              *
+                                              *
+// Utility functions                          *
+                                              *
+***********************************************/
+
+
+
+
+
+
 function applyHammingWindow(samples) {
     const N = samples.length;
     return samples.map((sample, n) => sample * (0.54 - 0.46 * Math.cos((2 * Math.PI * n) / (N - 1))));
@@ -221,6 +255,135 @@ function toggleRxTag(active) {
 (async () => {
     await RX_startMicrophoneStream();
 })();
+
+
+
+function headerFECArr() {
+    const repetitions = 3; // 3 repetitions of the header tones
+    const tonesPerHeader = 17; // Number of tones in the header
+    const datumFrequency = CALIBRATION_TONE_MAX; // Calibration frequency to find datum timestamp
+    const maxDatumTime = RX_state.startTime+20000; // Maximum time for the datum start
+
+    // Find the datum startTime (last occurrence of 1800 Hz within the maxDatumTime window)
+    const datumElement = RX_state.rawReceivedFrequencies
+        .filter(({ frequency, startTime }) => frequency === datumFrequency && startTime < maxDatumTime)
+        .pop();
+
+    if (!datumElement) {
+        console.error("No datum frequency (1800 Hz) found within the specified time window.");
+        return null;
+    }
+
+    const datumStartTime = datumElement.startTime + datumElement.duration; // Datum start
+
+    // Initialize groupedHeaderFrequencies with 3 empty arrays
+    RX_state.groupedHeaderFrequencies = Array.from({ length: repetitions }, () => []);
+
+    // Process header tones for each repetition
+    for (let repetition = 0; repetition < repetitions; repetition++) {
+        for (let toneIndex = 0; toneIndex < tonesPerHeader; toneIndex++) {
+            const toneStartTime = datumStartTime + (repetition * tonesPerHeader + toneIndex) * HEADER_TONE_DURATION;
+            const toneEndTime = toneStartTime + HEADER_TONE_DURATION;
+
+            // Find all frequencies within the tone's time range
+            const toneFrequencies = RX_state.rawReceivedFrequencies
+                .filter(({ startTime, duration }) => {
+                    const endTime = startTime + duration;
+                    return startTime >= toneStartTime && endTime <= toneEndTime;
+                })
+                .map(({ frequency }) => frequency);
+
+            // Calculate the mode average (most frequently occurring frequency)
+            const modeFrequency = calculateMode(toneFrequencies);
+            RX_state.groupedHeaderFrequencies[repetition].push(modeFrequency);
+        }
+    }
+
+    return RX_state.groupedHeaderFrequencies;
+}
+
+// Helper: Calculate the mode (most frequently occurring element)
+function calculateMode(array) {
+    const frequencyMap = {};
+    array.forEach((value) => {
+        frequencyMap[value] = (frequencyMap[value] || 0) + 1;
+    });
+
+    let mode = null;
+    let maxCount = -1;
+    for (const [value, count] of Object.entries(frequencyMap)) {
+        if (count > maxCount) {
+            mode = Number(value);
+            maxCount = count;
+        }
+    }
+    return mode;
+}
+
+
+
+
+
+function majorityVote(headerArrays) {
+    const tonesPerHeader = headerArrays[0].length;
+
+    const result = [];
+    for (let i = 0; i < tonesPerHeader; i++) {
+        // Extract the i-th tone from each array
+        const toneSet = headerArrays.map((array) => array[i]);
+        const majorityTone = calculateMode(toneSet); // Use the mode calculation from above
+        result.push(majorityTone);
+    }
+
+    return result;
+}
+
+
+
+
+function decodeHeaderAndUpdateUI(headerFrequencies) {
+        // Function to snap to the nearest frequency
+    const snapToFrequency = (frequency) => {
+        let snappedChar = null;
+        let minDifference = Infinity;
+
+        // Iterate over the character-to-frequency map
+        for (const [char, expectedFreq] of Object.entries(CHAR_FREQ_MAP)) {
+            const diff = Math.abs(frequency - expectedFreq);
+            if (diff < minDifference && diff <= RX_SNAP_THRESHOLD) {
+                snappedChar = char; // Snap to this character
+                minDifference = diff;
+            }
+        }
+
+        return snappedChar || '-'; // Return '-' if no valid snap is found
+    };
+
+    // Decode the header string with snapping
+    const decodedHeader = headerFrequencies
+        .map((frequency) => snapToFrequency(frequency)) // Snap frequencies to characters
+        .join('');
+
+    console.log("Decoded Header String:", decodedHeader);
+
+    // Split the header into components
+    const [sender, recipient, mode] = decodedHeader.split('-');
+
+    // Inject the details into the HTML
+    document.getElementById('image-type').textContent = mode || 'N/A';
+    document.getElementById('sender-callsign').textContent = sender || 'N/A';
+    document.getElementById('recipient-callsign').textContent = recipient || 'N/A';
+
+    // Example: Add meta information (e.g., distance from sender's callsign)
+    const distanceFrom = getCallsignMeta(sender); // Placeholder function to calculate distance
+    document.getElementById('distance').textContent = distanceFrom || 'N/A';
+
+    return { sender, recipient, mode }; // Return decoded components for further use if needed
+}
+
+
+
+
 
 
 
