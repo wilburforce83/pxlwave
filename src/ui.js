@@ -39,6 +39,7 @@ async function setupAudioVisualization() {
             audio: { deviceId: { exact: deviceId } }
         });
         currentStream = stream; // Save the stream for later cleanup
+        await RX_startMicrophoneStream(deviceId); // restart microphone stream after device change.
 
         const source = audioContext.createMediaStreamSource(stream);
         source.connect(analyser);
@@ -208,6 +209,8 @@ async function loadAudioDevices() {
 
         recordingSelect.addEventListener('change', async () => {
             await setupAudioVisualization(); // Restart audio visualization when the device changes
+            RX_stopListening(); // restart the listening processes on change
+            RX_startListening(); // restart the listening processes on change
         });
         playbackSelect.addEventListener('change', () => {
             ipcRenderer.send('set-playback-device', playbackSelect.value);

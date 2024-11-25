@@ -162,7 +162,7 @@ function RX_startListening() {
                     RX_stopListening();
                     RX_startListening();
                 }
-            }, 5000); // Timeout for RX listening
+            }, 15000); // Timeout for RX listening
         }
     }, timeUntilNextListen);
 }

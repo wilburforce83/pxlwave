@@ -3,7 +3,7 @@
 window.addEventListener('DOMContentLoaded', async () => {
 
     // Modal Elements
-    const settingsIcon = document.getElementById("settings-icon");
+    const settingsIcon = document.getElementById("settings-tag");
     const rxSettingsModal = document.getElementById("rx-settings-modal");
     const bandpassToggle = document.getElementById("bandpass-toggle");
     const compressionToggle = document.getElementById("compression-toggle");

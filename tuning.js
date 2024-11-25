@@ -148,6 +148,7 @@ RX_BANDPASS_STATE = receivePreferences.RX_BANDPASS_STATE;
 RX_AMPLITUDE_THRESHOLD_DB = receivePreferences.RX_AMPLITUDE_THRESHOLD_DB; // Amplitute threshold in dB for accepting a tone (basically squelch)
 RX_AMPLITUDE_THRESHOLD = Math.pow(10, RX_AMPLITUDE_THRESHOLD_DB / 20); // Convert to linear scale
 RX_COMPRESSOR_THRESH = RX_AMPLITUDE_THRESHOLD_DB +10; // compression always set above the Amplitude threshold.
+addToLog(`RX Threshold: ${RX_AMPLITUDE_THRESHOLD} (${RX_AMPLITUDE_THRESHOLD_DB} dB)`);
 } catch (error) {
     console.error('Error loading preferences:', error);
     alert('Failed to load preferences. Please try again.');
