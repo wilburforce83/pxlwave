@@ -214,6 +214,19 @@ async function loadAudioDevices() {
         });
         playbackSelect.addEventListener('change', () => {
             ipcRenderer.send('set-playback-device', playbackSelect.value);
+            playbackSelect.addEventListener('change', async function() {
+                selectedOutputDeviceId = playbackSelect.value;
+                if (txAudioElement && typeof txAudioElement.setSinkId !== 'undefined') {
+                    try {
+                        await txAudioElement.setSinkId(selectedOutputDeviceId);
+                        console.log('Audio output device set to ' + selectedOutputDeviceId);
+                    } catch (err) {
+                        console.error('Error setting audio output device: ', err);
+                    }
+                } else {
+                    console.warn('Audio element or setSinkId is not available.');
+                }
+            });
             console.log('Playback device change;',playbackSelect.value);
         });
 

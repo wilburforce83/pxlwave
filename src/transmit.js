@@ -10,6 +10,8 @@ let TX_stopTime;
 let TX_Active = false;
 let selectedOutputDeviceId = null;
 let scheduledAudioBuffer = null;
+let mediaStreamDestination = null;
+let txAudioElement = null;
 
 // Initialize the worker with constants and toneMaps
 // transmit.js
@@ -72,6 +74,18 @@ async function scheduleTransmission(gridData, senderCallsign, recipientCallsign,
     // Initialize the audio context
     await initAudioContext();
 
+    // Ensure the audio element is playing
+    if (txAudioElement) {
+        const playPromise = txAudioElement.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                console.log('Audio element is playing.');
+            }).catch((error) => {
+                console.error('Error playing audio element:', error);
+            });
+        }
+    }
+
     const now = new Date();
     const epoch = new Date('1970-01-01T00:00:00Z');
     const intervalMs = PROCESSING_INTERVAL * 60 * 1000;
@@ -112,15 +126,42 @@ async function scheduleTransmission(gridData, senderCallsign, recipientCallsign,
 }
 
 // Function to initialize the audio context
+// Function to initialize the audio context
 async function initAudioContext() {
     if (!txAudioContext) {
         txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
         gainNode = txAudioContext.createGain();
         gainNode.gain.value = 0.8; // Set the gain as needed
-        gainNode.connect(txAudioContext.destination);
+
+        // Create a MediaStreamAudioDestinationNode
+        mediaStreamDestination = txAudioContext.createMediaStreamDestination();
+        gainNode.connect(mediaStreamDestination);
+
+        // Create an HTMLAudioElement and set its srcObject to the MediaStream
+        txAudioElement = new Audio();
+        txAudioElement.autoplay = true;
+        txAudioElement.srcObject = mediaStreamDestination.stream;
+
+        // Set the sinkId to the selected output device, if available
+        if (typeof txAudioElement.setSinkId !== 'undefined') {
+            if (selectedOutputDeviceId) {
+                try {
+                    await txAudioElement.setSinkId(selectedOutputDeviceId);
+                    console.log('Audio output device set to ' + selectedOutputDeviceId);
+                } catch (err) {
+                    console.error('Error setting audio output device: ', err);
+                }
+            } else {
+                console.log('No output device selected, using default.');
+            }
+        } else {
+            console.warn('setSinkId is not supported in your browser.');
+        }
+
         console.log('Audio context initialized.');
     }
 }
+
 
 // Function to schedule the transmission after the calculated interval
 function scheduleTransmissionAfterInterval(nextInterval, transmissionData) {
@@ -133,6 +174,9 @@ function scheduleTransmissionAfterInterval(nextInterval, transmissionData) {
         startTransmission();
     }, timeUntilTransmit);
 }
+
+
+
 
 // Function to start the transmission
 function startTransmission() {

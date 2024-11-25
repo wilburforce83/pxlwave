@@ -107,7 +107,7 @@ async function RX_startMicrophoneStream(deviceId = null) {
             RX_audioContext.close();
         }
 
-        // Initialize the audio context and analyser
+        // Initialize the audio context
         RX_audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const constraints = deviceId
             ? { audio: { deviceId: { exact: deviceId } } }
@@ -116,11 +116,41 @@ async function RX_startMicrophoneStream(deviceId = null) {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         RX_microphoneStream = RX_audioContext.createMediaStreamSource(stream);
 
+        // Initialize GainNode for automatic gain adjustment
+        const gainNode = RX_audioContext.createGain();
+        RX_microphoneStream.connect(gainNode);
+
+        // Measure the noise floor and adjust gain
+        await adjustGainToNoiseFloor(gainNode);
+
+        // Add Bandpass Filter if enabled
+        let bandpassFilter = null;
+        if (RX_BANDPASS_STATE) {
+            bandpassFilter = RX_audioContext.createBiquadFilter();
+            bandpassFilter.type = "bandpass";
+            bandpassFilter.frequency.value = 1200; // Center frequency
+            bandpassFilter.Q = 1; // Quality factor
+            gainNode.connect(bandpassFilter); // Chain bandpass filter
+        }
+
+        // Add Compressor if enabled
+        let compressor = null;
+        if (RX_COMPRESSOR_STATE) {
+            compressor = RX_audioContext.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(-50, RX_audioContext.currentTime); // Threshold in dB
+            compressor.knee.setValueAtTime(40, RX_audioContext.currentTime); // Knee in dB
+            compressor.ratio.setValueAtTime(12, RX_audioContext.currentTime); // Compression ratio
+            compressor.attack.setValueAtTime(0.003, RX_audioContext.currentTime); // Attack time
+            compressor.release.setValueAtTime(0.25, RX_audioContext.currentTime); // Release time
+            (bandpassFilter || gainNode).connect(compressor); // Chain compressor
+        }
+
+        // Add Analyser Node
         RX_analyser = RX_audioContext.createAnalyser();
         RX_analyser.fftSize = FFT_SIZE;
         RX_dataArray = new Float32Array(RX_analyser.frequencyBinCount);
 
-        RX_microphoneStream.connect(RX_analyser);
+        (compressor || bandpassFilter || gainNode).connect(RX_analyser);
 
         // Start real-time amplitude monitoring
         monitorAmplitude();
@@ -132,6 +162,8 @@ async function RX_startMicrophoneStream(deviceId = null) {
         addToLog('Failed to initialize microphone stream.');
     }
 }
+
+
 
 // Function to monitor and display amplitude in dB
 function monitorAmplitude() {
@@ -379,7 +411,50 @@ function decodeHeaderAndUpdateUI(headerFrequencies) {
     document.getElementById('distance').textContent = distanceFrom || 'N/A';
 
     return { sender, recipient, mode }; // Return decoded components for further use if needed
+};
+
+
+
+async function adjustGainToNoiseFloor(gainNode) {
+    return new Promise((resolve) => {
+        const analyser = RX_audioContext.createAnalyser();
+        gainNode.connect(analyser);
+
+        analyser.fftSize = 256;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Float32Array(bufferLength);
+
+        // Measure noise floor over 500ms
+        let startTime = performance.now();
+        let noiseSum = 0;
+        let count = 0;
+
+        const measureNoise = () => {
+            analyser.getFloatFrequencyData(dataArray);
+            const noiseFloor = dataArray.reduce((sum, value) => sum + Math.abs(value), 0) / bufferLength;
+            noiseSum += noiseFloor;
+            count++;
+
+            if (performance.now() - startTime < 500) {
+                requestAnimationFrame(measureNoise);
+            } else {
+                // Calculate average noise floor
+                const avgNoiseFloor = noiseSum / count;
+
+                // Adjust gain to normalize noise floor to a target value
+                const targetNoiseFloor = RX_AMPLITUDE_THRESHOLD_DB; // Target noise floor in dB
+                const gainAdjustment = Math.pow(10, (targetNoiseFloor - avgNoiseFloor) / 20);
+                gainNode.gain.setValueAtTime(gainAdjustment, RX_audioContext.currentTime);
+
+                console.log(`Noise floor adjusted: Avg ${avgNoiseFloor} dB, Gain set to ${gainAdjustment}`);
+                resolve();
+            }
+        };
+
+        measureNoise();
+    });
 }
+
 
 
 
