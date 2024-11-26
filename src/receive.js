@@ -49,7 +49,7 @@ RX_worker.onmessage = (event) => {
     if (detectedFrequency) {
         RX_state.rawReceivedFrequencies.push({ startTime, duration, frequency: detectedFrequency });
     }
-    if (RXtime > 10000 && !RX_state.headerReceived) {
+    if (RXtime > 15000 && !RX_state.headerReceived) {
         RX_state.headerReceived = true;
         const HeaderFrequencies = headerFECArr();
         console.log(HeaderFrequencies);
@@ -313,7 +313,7 @@ function headerFECArr() {
         return null;
     }
 
-    const datumStartTime = datumElement.startTime - (HEADER_TONE_DURATION / 2); // Datum start minus half the header tone duration.
+    const datumStartTime = datumElement.startTime + (HEADER_TONE_DURATION * 0.75);
 
     // Initialize groupedHeaderFrequencies with 'repetitions' number of empty arrays
     RX_state.groupedHeaderFrequencies = Array.from({ length: repetitions }, () => []);
@@ -328,10 +328,10 @@ function headerFECArr() {
             const timeWindowStart = toneCenterTime - (HEADER_TONE_DURATION * 0.1);
             const timeWindowEnd = toneCenterTime + (HEADER_TONE_DURATION * 0.1);
 
-           // Find all frequencies whose startTime falls within the time window
-        const toneFrequencies = SanitisedFrequencies
-        .filter(({ startTime }) => startTime >= timeWindowStart && startTime <= timeWindowEnd)
-        .map(({ frequency }) => frequency);
+            // Find all frequencies whose startTime falls within the time window
+            const toneFrequencies = SanitisedFrequencies
+                .filter(({ startTime }) => startTime >= timeWindowStart && startTime <= timeWindowEnd)
+                .map(({ frequency }) => frequency);
 
             // Calculate the mode frequency (most frequently occurring frequency)
             const modeFrequency = calculateMode(toneFrequencies);
@@ -346,19 +346,36 @@ function headerFECArr() {
 function calculateMode(array) {
     const frequencyMap = {};
     array.forEach((value) => {
-        frequencyMap[value] = (frequencyMap[value] || 0) + 1;
+        // Only include valid numbers
+        if (typeof value === 'number' && !isNaN(value)) {
+            frequencyMap[value] = (frequencyMap[value] || 0) + 1;
+        }
     });
 
     let mode = null;
     let maxCount = -1;
+
+    // Find the mode among valid numbers
     for (const [value, count] of Object.entries(frequencyMap)) {
         if (count > maxCount) {
             mode = Number(value);
             maxCount = count;
         }
     }
+
+    // If no valid mode found, attempt to find a single valid number
+    if ((mode === null || isNaN(mode))) {
+        for (let i = 0; i < array.length; i++) {
+            if (typeof array[i] === 'number' && !isNaN(array[i])) {
+                mode = array[i];
+                break;
+            }
+        }
+    }
+
     return mode;
 }
+
 
 
 
@@ -426,7 +443,7 @@ function decodeHeaderAndUpdateUI(headerFrequencies) {
 async function adjustGainToNoiseFloor(gainNode) {
     return new Promise((resolve) => {
         const analyser = RX_audioContext.createAnalyser();
-        analyser.fftSize = 8192; // Small FFT size for quick updates
+        analyser.fftSize = 256; // Small FFT size for quick updates
         gainNode.connect(analyser);
 
         const bufferLength = analyser.frequencyBinCount;
@@ -448,15 +465,18 @@ async function adjustGainToNoiseFloor(gainNode) {
 
             // Calculate noise floor (average magnitude in dB)
             const noiseFloor = dataArray.reduce((sum, value) => sum + Math.abs(value), 0) / bufferLength;
-            noiseSum += noiseFloor;
-            count++;
+            if (isFinite(noiseFloor)) {
+                noiseSum += -Math.abs(noiseFloor);
+                count++;
+            }
+
 
             if (performance.now() - startTime < 500) {
                 requestAnimationFrame(measureNoise);
             } else {
                 // Calculate average noise floor
                 const avgNoiseFloor = noiseSum / count;
-
+                console.log(`NoiseSum = ${noiseSum}, count = ${count}`);
                 // Prevent invalid or infinite values
                 if (isNaN(avgNoiseFloor) || !isFinite(avgNoiseFloor)) {
                     console.error("Invalid noise floor calculation. Adjusting gain aborted.");
@@ -465,7 +485,7 @@ async function adjustGainToNoiseFloor(gainNode) {
                 }
 
                 // Adjust gain to normalize noise floor
-                const targetNoiseFloor = -60; // Target noise floor in dB
+                const targetNoiseFloor = -20; // Target noise floor in dB
                 const gainAdjustment = Math.pow(10, (targetNoiseFloor - avgNoiseFloor) / 20);
                 gainNode.gain.setValueAtTime(gainAdjustment, RX_audioContext.currentTime);
 

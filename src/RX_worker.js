@@ -35,7 +35,7 @@ self.onmessage = (event) => {
             magnitudes.length;
 
         const stdDeviation = Math.sqrt(variance);
-        const dynamicThreshold = meanMagnitude + (stdDeviation * 3.5); // Adjust multiplier as needed
+        const dynamicThreshold = meanMagnitude + (stdDeviation * 2.6); // Adjust multiplier as needed
 
         // Filter out detected frequency if its magnitude is below the dynamic threshold
         if (maxMagnitude < dynamicThreshold || maxMagnitude < 4) { // dynamic noise floor + minimum signal magnitude requirement
