@@ -39,12 +39,12 @@ RX_worker.onmessage = (event) => {
     const { detectedFrequency, startTime, duration, maxMagnitude, frequencyMagnitudes } = event.data;
 
     const RXtime = startTime - RX_state.startTime;
-   // console.log(RXtime)
+    // console.log(RXtime)
     // Log the magnitudes for each frequency
-  //  console.log('Start time', startTime);
+    //  console.log('Start time', startTime);
 
     // Log the detected frequency and its magnitude
-   //  console.log(`Detected Frequency: ${detectedFrequency}, Magnitude: ${maxMagnitude}`);
+    //  console.log(`Detected Frequency: ${detectedFrequency}, Magnitude: ${maxMagnitude}`);
 
     if (detectedFrequency) {
         RX_state.rawReceivedFrequencies.push({ startTime, duration, frequency: detectedFrequency });
@@ -58,7 +58,7 @@ RX_worker.onmessage = (event) => {
             console.error("Failed to process header frequencies.");
             return;
         }
-        
+
         const headerTones = majorityVote(HeaderFrequencies);
         console.log("Decoded Header Tones:", headerTones);
         console.log(decodeHeaderAndUpdateUI(headerTones));
@@ -114,6 +114,10 @@ async function RX_startMicrophoneStream(deviceId = null) {
             : { audio: true };
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (!stream) {
+            console.error("No audio stream detected!");
+            return;
+        }
         RX_microphoneStream = RX_audioContext.createMediaStreamSource(stream);
 
         // Initialize GainNode for automatic gain adjustment
@@ -122,7 +126,8 @@ async function RX_startMicrophoneStream(deviceId = null) {
 
         // Measure the noise floor and adjust gain
         await adjustGainToNoiseFloor(gainNode);
-
+        // Continue connecting the audio chain (e.g., Bandpass Filter, Compressor)
+        console.log("Gain adjustment complete, proceeding with audio chain...");
         // Add Bandpass Filter if enabled
         let bandpassFilter = null;
         if (RX_BANDPASS_STATE) {
@@ -229,18 +234,19 @@ function RX_stopListening() {
 // Process microphone input
 function processMicrophoneInput() {
     if (!RX_isListening) return;
-
+    let startTime = performance.now();
     RX_analyser.getFloatTimeDomainData(RX_dataArray);
     const windowedSamples = applyHammingWindow(Array.from(RX_dataArray));
 
     RX_worker.postMessage({
+        startTime: startTime,
         samples: windowedSamples,
         sampleRate: RX_audioContext.sampleRate,
         expectedFrequencies: RX_EXPECTED_FREQUENCIES,
         calibrationOffset: RX_state.calibration.offset,
     });
 
-    setTimeout(processMicrophoneInput, PROCESSING_INTERVAL);
+    setTimeout(processMicrophoneInput, RX_ANALYSIS_INTERVAL);
 }
 
 
@@ -294,10 +300,11 @@ function headerFECArr() {
     const repetitions = 3; // 3 repetitions of the header tones
     const tonesPerHeader = 17; // Number of tones in the header
     const datumFrequency = CALIBRATION_TONE_MAX; // Calibration frequency to find datum timestamp
-    const maxDatumTime = RX_state.startTime+20000; // Maximum time for the datum start
+    const maxDatumTime = RX_state.startTime + 20000; // Maximum time for the datum start
+    let SanitisedFrequencies = dropRogueTonesObjects(RX_state.rawReceivedFrequencies, HEADER_TONE_DURATION / (RX_ANALYSIS_INTERVAL * 2), "frequency")
 
     // Find the datum startTime (last occurrence of 1800 Hz within the maxDatumTime window)
-    const datumElement = RX_state.rawReceivedFrequencies
+    const datumElement = SanitisedFrequencies
         .filter(({ frequency, startTime }) => frequency === datumFrequency && startTime < maxDatumTime)
         .pop();
 
@@ -306,26 +313,27 @@ function headerFECArr() {
         return null;
     }
 
-    const datumStartTime = datumElement.startTime + datumElement.duration; // Datum start
+    const datumStartTime = datumElement.startTime - (HEADER_TONE_DURATION / 2); // Datum start minus half the header tone duration.
 
-    // Initialize groupedHeaderFrequencies with 3 empty arrays
+    // Initialize groupedHeaderFrequencies with 'repetitions' number of empty arrays
     RX_state.groupedHeaderFrequencies = Array.from({ length: repetitions }, () => []);
 
     // Process header tones for each repetition
     for (let repetition = 0; repetition < repetitions; repetition++) {
         for (let toneIndex = 0; toneIndex < tonesPerHeader; toneIndex++) {
-            const toneStartTime = datumStartTime + (repetition * tonesPerHeader + toneIndex) * HEADER_TONE_DURATION;
-            const toneEndTime = toneStartTime + HEADER_TONE_DURATION;
+            // Calculate the center time of the current tone
+            const toneCenterTime = datumStartTime + (repetition * tonesPerHeader + toneIndex) * HEADER_TONE_DURATION;
 
-            // Find all frequencies within the tone's time range
-            const toneFrequencies = RX_state.rawReceivedFrequencies
-                .filter(({ startTime, duration }) => {
-                    const endTime = startTime + duration;
-                    return startTime >= toneStartTime && endTime <= toneEndTime;
-                })
-                .map(({ frequency }) => frequency);
+            // Calculate the time window (±20% of HEADER_TONE_DURATION around the center)
+            const timeWindowStart = toneCenterTime - (HEADER_TONE_DURATION * 0.1);
+            const timeWindowEnd = toneCenterTime + (HEADER_TONE_DURATION * 0.1);
 
-            // Calculate the mode average (most frequently occurring frequency)
+           // Find all frequencies whose startTime falls within the time window
+        const toneFrequencies = SanitisedFrequencies
+        .filter(({ startTime }) => startTime >= timeWindowStart && startTime <= timeWindowEnd)
+        .map(({ frequency }) => frequency);
+
+            // Calculate the mode frequency (most frequently occurring frequency)
             const modeFrequency = calculateMode(toneFrequencies);
             RX_state.groupedHeaderFrequencies[repetition].push(modeFrequency);
         }
@@ -374,7 +382,7 @@ function majorityVote(headerArrays) {
 
 
 function decodeHeaderAndUpdateUI(headerFrequencies) {
-        // Function to snap to the nearest frequency
+    // Function to snap to the nearest frequency
     const snapToFrequency = (frequency) => {
         let snappedChar = null;
         let minDifference = Infinity;
@@ -388,7 +396,7 @@ function decodeHeaderAndUpdateUI(headerFrequencies) {
             }
         }
 
-        return snappedChar || '-'; // Return '-' if no valid snap is found
+        return snappedChar || ''; // Return '-' if no valid snap is found
     };
 
     // Decode the header string with snapping
@@ -418,19 +426,27 @@ function decodeHeaderAndUpdateUI(headerFrequencies) {
 async function adjustGainToNoiseFloor(gainNode) {
     return new Promise((resolve) => {
         const analyser = RX_audioContext.createAnalyser();
+        analyser.fftSize = 8192; // Small FFT size for quick updates
         gainNode.connect(analyser);
 
-        analyser.fftSize = 256;
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Float32Array(bufferLength);
 
-        // Measure noise floor over 500ms
         let startTime = performance.now();
         let noiseSum = 0;
         let count = 0;
 
         const measureNoise = () => {
             analyser.getFloatFrequencyData(dataArray);
+
+            // Ensure dataArray contains valid values
+            if (!dataArray.some((value) => !isNaN(value) && value !== 0)) {
+                console.error("No audio detected! Check input stream.");
+                resolve(); // Abort adjustment
+                return;
+            }
+
+            // Calculate noise floor (average magnitude in dB)
             const noiseFloor = dataArray.reduce((sum, value) => sum + Math.abs(value), 0) / bufferLength;
             noiseSum += noiseFloor;
             count++;
@@ -441,18 +457,81 @@ async function adjustGainToNoiseFloor(gainNode) {
                 // Calculate average noise floor
                 const avgNoiseFloor = noiseSum / count;
 
-                // Adjust gain to normalize noise floor to a target value
-                const targetNoiseFloor = RX_AMPLITUDE_THRESHOLD_DB; // Target noise floor in dB
+                // Prevent invalid or infinite values
+                if (isNaN(avgNoiseFloor) || !isFinite(avgNoiseFloor)) {
+                    console.error("Invalid noise floor calculation. Adjusting gain aborted.");
+                    resolve();
+                    return;
+                }
+
+                // Adjust gain to normalize noise floor
+                const targetNoiseFloor = -60; // Target noise floor in dB
                 const gainAdjustment = Math.pow(10, (targetNoiseFloor - avgNoiseFloor) / 20);
                 gainNode.gain.setValueAtTime(gainAdjustment, RX_audioContext.currentTime);
 
-                console.log(`Noise floor adjusted: Avg ${avgNoiseFloor} dB, Gain set to ${gainAdjustment}`);
+                console.log(`Noise floor adjusted: Avg ${avgNoiseFloor.toFixed(2)} dB, Gain set to ${gainAdjustment}`);
                 resolve();
             }
         };
 
         measureNoise();
     });
+}
+
+
+
+
+function dropRogueTones(tonesArray, minConsecutive) {
+    // Result array to hold the filtered tones
+    const filteredTones = [];
+    let currentStreak = [];
+
+    for (let i = 0; i < tonesArray.length; i++) {
+        // If the current tone matches the previous one, add it to the streak
+        if (currentStreak.length === 0 || tonesArray[i] === currentStreak[0]) {
+            currentStreak.push(tonesArray[i]);
+        } else {
+            // Check if the streak meets the minimum consecutive requirement
+            if (currentStreak.length >= minConsecutive) {
+                filteredTones.push(...currentStreak);
+            }
+            // Reset the streak for the next tone
+            currentStreak = [tonesArray[i]];
+        }
+    }
+
+    // Check the last streak
+    if (currentStreak.length >= minConsecutive) {
+        filteredTones.push(...currentStreak);
+    }
+
+    return filteredTones;
+}
+
+function dropRogueTonesObjects(tonesArray, minConsecutive, key) {
+    const filteredTones = [];
+    let currentStreak = [];
+
+    for (let i = 0; i < tonesArray.length; i++) {
+        // If the current streak is empty or the current tone matches the streak key
+        if (currentStreak.length === 0 || tonesArray[i][key] === currentStreak[0][key]) {
+            currentStreak.push(tonesArray[i]);
+        } else {
+            // Check if the streak meets the minimum consecutive requirement
+            if (currentStreak.length >= minConsecutive) {
+                filteredTones.push(...currentStreak);
+            }
+            // Reset the streak for the next tone
+            currentStreak = [tonesArray[i]];
+        }
+    }
+
+    // Check the last streak
+    if (currentStreak.length >= minConsecutive) {
+        filteredTones.push(...currentStreak);
+    }
+
+    return filteredTones;
 }
 
 

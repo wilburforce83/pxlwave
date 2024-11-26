@@ -114,7 +114,7 @@ function createHeaderString(transmissionData) {
     headerString = headerString.toUpperCase();
 
     // Replace unsupported characters with '-'
-    headerString = headerString.replace(/[^A-Z0-9 -]/g, '-');
+    headerString = headerString.replace(/[^A-Z0-9 -]/g, ' ');
 console.log(headerString);
     return headerString;
 }

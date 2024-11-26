@@ -3,7 +3,7 @@ const { ipcRenderer } = require('electron');
 // Modulation: these are the 5 big variables to change the modulation of pxlwave
 const MIN_TONE_FREQ = 800;
 const BANDWIDTH = 1000;
-const FFT_SIZE = 16384; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
+const FFT_SIZE = 4096; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
 const TONE_DURATION = 100; // milliseconds per tone
 const HEADER_TONE_DURATION = 150; // milliseconds for header tones
 const CALIBRATION_TONE_DURATION = 500;
@@ -13,13 +13,9 @@ const MAGNITUDE_THRESH = 10;
 
 // RX specific
 
-const RX_ANALYSIS_INTERVAL = 2;     // in ms the trigger interval for sampling
-const RX_REQUIRED_SAMPLES_PER_TONE = 6; // how many consecutive saple of a tone required to confirm tone receipt
-const RX_MIN_SAMPLES_PER_TONE = 4;
+const RX_ANALYSIS_INTERVAL = 5;     // in ms the trigger interval for sampling
 const RX_startTime = 6; // Start listening + x seconds past the minute
 const RX_endTime = 15; // Timeout if no calibration tone detected by +15 seconds
-const USE_QUADRATIC_INTERPOLATION = true; // switch off for faster Analysis intervals, but loose resolution as per chart below
-const USE_PARABOLIC_INTERPOLATION = false; // faster than quadratic interpolation but less accurate.
 
 
 

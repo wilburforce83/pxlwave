@@ -1,15 +1,15 @@
 // RX_worker.js
 
 self.onmessage = (event) => {
-    const { samples, sampleRate, expectedFrequencies, calibrationOffset } = event.data;
-
+    const { startTime, samples, sampleRate, expectedFrequencies, calibrationOffset } = event.data;
+    const endTime = performance.now(); // Record the end time
+    const duration = endTime - startTime; // Calculate the duration in milliseconds
     try {
         const windowedSamples = applyHammingWindow(samples);
         let detectedFrequency = null;
         let maxMagnitude = -Infinity;
         let frequencyMagnitudes = []; // Array to store magnitudes of all frequencies
 
-        const startTime = performance.now(); // Record the start time of the function execution
 
         // Calculate magnitudes for all expected frequencies
         for (const targetFreq of expectedFrequencies) {
@@ -38,18 +38,13 @@ self.onmessage = (event) => {
         const dynamicThreshold = meanMagnitude + (stdDeviation * 3.5); // Adjust multiplier as needed
 
         // Filter out detected frequency if its magnitude is below the dynamic threshold
-        if (maxMagnitude < dynamicThreshold || maxMagnitude < 7) { // dynamic noise floor + minimum signal magnitude requirement
-          /*  console.log(
-                `Filtered out frequency: ${detectedFrequency} with magnitude ${maxMagnitude} (Threshold: ${dynamicThreshold})`
-            ); */
+        if (maxMagnitude < dynamicThreshold || maxMagnitude < 4) { // dynamic noise floor + minimum signal magnitude requirement
+        //   console.log(`Filtered out frequency: ${detectedFrequency} with magnitude ${maxMagnitude} (Threshold: ${dynamicThreshold})`);
             return; // Skip processing if below threshold
         }
-       /* console.log(
-            `Passed frequency: ${detectedFrequency} with magnitude ${maxMagnitude} (Threshold: ${dynamicThreshold})`
-        ); */
+      // console.log(`Passed frequency: ${detectedFrequency} with magnitude ${maxMagnitude} (Threshold: ${dynamicThreshold})`);
 
-        const endTime = performance.now(); // Record the end time
-        const duration = endTime - startTime; // Calculate the duration in milliseconds
+        
 
         // Send back results
         self.postMessage({
