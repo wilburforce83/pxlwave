@@ -167,9 +167,10 @@ async function initAudioContext() {
 function scheduleTransmissionAfterInterval(nextInterval, transmissionData) {
     const now = new Date();
     const timeUntilTransmit = nextInterval.getTime() - now.getTime();
+    const seconds = timeUntilTransmit/1000;
 
     console.log(`[${new Date().toISOString()}] Transmission scheduled. Time until transmit: ${timeUntilTransmit} ms`);
-
+addToLog(`TX scheduled.`, 'tx');
     setTimeout(() => {
         startTransmission();
     }, timeUntilTransmit);

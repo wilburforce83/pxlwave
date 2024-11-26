@@ -160,11 +160,11 @@ async function RX_startMicrophoneStream(deviceId = null) {
         // Start real-time amplitude monitoring
         monitorAmplitude();
 
-        addToLog(`Microphone stream initialized using device: ${deviceId || 'default'}`);
+        addToLog(`Microphone stream initialized using device: ${deviceId || 'default'}`,'info');
         RX_startListening();
     } catch (error) {
         console.error('Error initializing microphone stream:', error);
-        addToLog('Failed to initialize microphone stream.');
+        addToLog('Failed to initialize microphone stream.','err');
     }
 }
 
@@ -209,7 +209,7 @@ function RX_startListening() {
             resetRXState();
             toggleRxTag(true);
             RX_isListening = true;
-            addToLog('Listening for tones...');
+          addToLog('Listening for tones...','info');
             RX_state.startTime = performance.now();
             processMicrophoneInput();
 
@@ -228,7 +228,7 @@ function RX_stopListening() {
     toggleRxTag(false);
     if (RX_audioContext) RX_audioContext.suspend();
     clearTimeout(RX_listeningTimeout);
-    addToLog('Stopped listening.');
+   console.log('Stopped listening.');
 }
 
 // Process microphone input
@@ -289,12 +289,6 @@ function toggleRxTag(active) {
     rxTag.classList.toggle('tag-inactive', !active);
     rxTag.classList.toggle('tag-rx', active);
 }
-
-(async () => {
-    await RX_startMicrophoneStream();
-})();
-
-
 
 function headerFECArr() {
     const repetitions = 3; // 3 repetitions of the header tones
@@ -430,7 +424,7 @@ function decodeHeaderAndUpdateUI(headerFrequencies) {
     document.getElementById('image-type').textContent = mode || 'N/A';
     document.getElementById('sender-callsign').textContent = sender || 'N/A';
     document.getElementById('recipient-callsign').textContent = recipient || 'N/A';
-
+    addToLog("Header Recieved", 'rx',sender);
     // Example: Add meta information (e.g., distance from sender's callsign)
     const distanceFrom = getCallsignMeta(sender); // Placeholder function to calculate distance
     document.getElementById('distance').textContent = distanceFrom || 'N/A';
@@ -552,7 +546,7 @@ function dropRogueTonesObjects(tonesArray, minConsecutive, key) {
     }
 
     return filteredTones;
-}
+};
 
 
 

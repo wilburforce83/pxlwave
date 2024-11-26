@@ -153,7 +153,7 @@ function addToLog(message, type = 'rx', callsign = '') {
     const log = document.getElementById('log');
     const timestamp = new Date().toLocaleTimeString();
     const logItem = document.createElement('li');
-    logItem.classList.add(type === 'rx' ? 'log-rx' : 'log-tx');
+    logItem.classList.add(`log-${type}`);
 
     const timeElem = document.createElement('span');
     timeElem.classList.add('timestamp');
@@ -208,9 +208,9 @@ async function loadAudioDevices() {
             });
 
         recordingSelect.addEventListener('change', async () => {
-            await setupAudioVisualization(); // Restart audio visualization when the device changes
             RX_stopListening(); // restart the listening processes on change
-            RX_startListening(); // restart the listening processes on change
+            await setupAudioVisualization(); // Restart audio visualization when the device changes
+            
         });
         playbackSelect.addEventListener('change', () => {
             ipcRenderer.send('set-playback-device', playbackSelect.value);
