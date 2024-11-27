@@ -16,9 +16,8 @@ const MAGNITUDE_THRESH = 10;
 const RX_ANALYSIS_INTERVAL = 5;     // in ms the trigger interval for sampling
 const RX_startTime = 6; // Start listening + x seconds past the minute
 const RX_endTime = 15; // Timeout if no calibration tone detected by +15 seconds
-
-
-
+var RX_COMPRESSOR_STATE = true;
+var RX_BANDPASS_STATE = false;
 
 // TX Specific
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
@@ -128,30 +127,6 @@ function generateToneMaps(MIN_TONE_FREQ, BANDWIDTH) {
         StepSize: stepSize
     };
 }
-//Prep Preferences
-var RX_COMPRESSOR_STATE = true;
-var RX_BANDPASS_STATE = true;
-var RX_AMPLITUDE_THRESHOLD_DB = -60;
-var RX_AMPLITUDE_THRESHOLD = 0;
-var RX_COMPRESSOR_THRESH = 0;
-
-async function getRXPref (){
-// Load preferences:
-try {
-// Load receive preferences and populate fields
-const receivePreferences = await ipcRenderer.invoke('load-receive-preferences');
-RX_COMPRESSOR_STATE = receivePreferences.RX_COMPRESSOR_STATE;
-RX_BANDPASS_STATE = receivePreferences.RX_BANDPASS_STATE;
-RX_AMPLITUDE_THRESHOLD_DB = receivePreferences.RX_AMPLITUDE_THRESHOLD_DB; // Amplitute threshold in dB for accepting a tone (basically squelch)
-RX_AMPLITUDE_THRESHOLD = Math.pow(10, RX_AMPLITUDE_THRESHOLD_DB / 20); // Convert to linear scale
-RX_COMPRESSOR_THRESH = RX_AMPLITUDE_THRESHOLD_DB +10; // compression always set above the Amplitude threshold.
-} catch (error) {
-    console.error('Error loading preferences:', error);
-    alert('Failed to load preferences. Please try again.');
-}
-};
-
-getRXPref();
 
 console.log("modulation specification:",toneMaps, END_OF_LINE);
 

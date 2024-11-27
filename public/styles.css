@@ -83,22 +83,32 @@ button {
 
 /* RX and TX styles */
 .log-rx {
-    color: #119955; /* Green for RX */
+    color: #119955; 
     font-size: 1em !important;/* Smaller font size */
 }
 
 .log-tx {
-    color: #f09c60; /* Orange for TX */
+    color: #f09c60; 
     font-size: 1em !important;/* Smaller font size */
 }
 
 .log-info {
-    color: #4d7a99; /* Orange for TX */
+    color: #4d7a99; 
     font-size: 1em !important;/* Smaller font size */
 }
 
 .log-err {
-    color: #993649; /* Orange for TX */
+    color: #993649; 
+    font-size: 1em !important;/* Smaller font size */
+}
+
+.log-hd {
+    color: #732866; 
+    font-size: 1em !important;/* Smaller font size */
+}
+
+.log- {
+    color: #732866; 
     font-size: 1em !important;/* Smaller font size */
 }
 

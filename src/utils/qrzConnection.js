@@ -54,7 +54,7 @@ async function getCallsignMeta(callsign) {
         console.log(callsign, qrz);
 
         document.getElementById('distance').innerText = Math.round(qrz.distance);
-        addToLog(`${callsign} is about ${Math.round(qrz.distance)} km away from you`);
+        addToLog(`${callsign} is about ${Math.round(qrz.distance)} km away from you`, 'hd');
 
         return qrz;
 

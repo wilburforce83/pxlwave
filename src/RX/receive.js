@@ -22,6 +22,7 @@ let RX_state = {
 let RX_audioContext, RX_analyser, RX_microphoneStream, RX_dataArray, RX_worker;
 let RX_isListening = false;
 let RX_listeningTimeout = null;
+let RX_startListeningTimeout = null;
 
 // Constants
 const RX_EXPECTED_FREQUENCIES = [
@@ -32,7 +33,7 @@ const RX_EXPECTED_FREQUENCIES = [
 ];
 
 // Initialize Web Worker
-RX_worker = new Worker('../src/RX_worker.js');
+RX_worker = new Worker('../src/RX/RX_worker.js');
 // receive.js
 
 RX_worker.onmessage = (event) => {
@@ -204,7 +205,7 @@ function RX_startListening() {
 
     startRXCountdown(timeUntilNextListen);
 
-    setTimeout(() => {
+    RX_startListeningTimeout = setTimeout(() => {
         if (!TX_Active) {
             resetRXState();
             toggleRxTag(true);
@@ -228,6 +229,7 @@ function RX_stopListening() {
     toggleRxTag(false);
     if (RX_audioContext) RX_audioContext.suspend();
     clearTimeout(RX_listeningTimeout);
+    clearTimeout(RX_startListeningTimeout);
    console.log('Stopped listening.');
 }
 
@@ -452,7 +454,7 @@ async function adjustGainToNoiseFloor(gainNode) {
 
             // Ensure dataArray contains valid values
             if (!dataArray.some((value) => !isNaN(value) && value !== 0)) {
-                console.error("No audio detected! Check input stream.");
+                addToLog("No audio detected! Check input stream.","err");
                 resolve(); // Abort adjustment
                 return;
             }
