@@ -500,7 +500,7 @@ async function adjustGainToNoiseFloor(gainNode) {
                 }
 
                 // Adjust gain to normalize noise floor
-                const targetNoiseFloor = -10; // Target noise floor in dB
+                const targetNoiseFloor = -30; // Target noise floor in dB
                 const gainAdjustment = Math.pow(10, (targetNoiseFloor - avgNoiseFloor) / 20);
                 gainNode.gain.setValueAtTime(gainAdjustment, RX_audioContext.currentTime);
 
