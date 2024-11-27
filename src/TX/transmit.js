@@ -2,7 +2,7 @@
 
 console.log('transmit.js loaded');
 
-let txWorker = new Worker('../src/TX_worker.js');
+let txWorker = new Worker('../src/TX/TX_worker.js');
 let txAudioContext = null;
 let gainNode = null;
 let TX_startTime;
@@ -27,6 +27,7 @@ txWorker.postMessage({
         CALIBRATION_TONE_MIN,
         CALIBRATION_TONE_MAX,
         CALIBRATION_TONE_DURATION, // Add this line
+        MAX_CHAR_HEADER,
         toneMaps, // Pass the entire toneMaps object
     }
 });
@@ -132,11 +133,10 @@ async function initAudioContext() {
         txAudioContext = new (window.AudioContext || window.webkitAudioContext)();
         gainNode = txAudioContext.createGain();
         gainNode.gain.value = 0.8; // Set the gain as needed
-
+let selectedOutputDeviceId = document.getElementById('playback-device').value;
         // Create a MediaStreamAudioDestinationNode
         mediaStreamDestination = txAudioContext.createMediaStreamDestination();
         gainNode.connect(mediaStreamDestination);
-
         // Create an HTMLAudioElement and set its srcObject to the MediaStream
         txAudioElement = new Audio();
         txAudioElement.autoplay = true;
@@ -237,8 +237,6 @@ function precompileAudioBuffer(toneSequence) {
     const data = buffer.getChannelData(0);
     let bufferIndex = 0;
 
-    console.log('Transmission Data:');
-
     toneSequence.forEach((tone, index) => {
         const frequency = tone.frequency;
         const duration = tone.duration;
@@ -249,7 +247,7 @@ function precompileAudioBuffer(toneSequence) {
         const envelopeDuration = toneDurationSeconds * (GAP_DURATION / 100);
         const envelopeSamples = Math.max(1, Math.floor(sampleRate * envelopeDuration));
 
-        console.log(`Tone ${index + 1}: Frequency = ${frequency} Hz, Duration = ${duration} ms`);
+       // console.log(`Tone ${index + 1}: Frequency = ${frequency} Hz, Duration = ${duration} ms`);
 
         for (let i = 0; i < toneLengthInSamples; i++) {
             // Calculate amplitude with envelope

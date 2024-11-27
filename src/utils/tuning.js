@@ -4,11 +4,12 @@ const { ipcRenderer } = require('electron');
 const MIN_TONE_FREQ = 800;
 const BANDWIDTH = 1000;
 const FFT_SIZE = 4096; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
-const TONE_DURATION = 100; // milliseconds per tone
+const TONE_DURATION = 50; // milliseconds per tone
 const HEADER_TONE_DURATION = 150; // milliseconds for header tones
 const CALIBRATION_TONE_DURATION = 500;
 const GAP_DURATION = 5; // % of tone duration
 const MAGNITUDE_THRESH = 10;
+const MAX_CHAR_HEADER = 17
 
 
 // RX specific
@@ -21,7 +22,7 @@ var RX_BANDPASS_STATE = false;
 
 // TX Specific
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
-const FEC = false;
+const FEC = true;
 
 /*
 

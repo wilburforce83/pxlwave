@@ -2,12 +2,15 @@
 
 let RX_state = {
     startTime: 0,
+    datumStartTime: 0,
     headerReceived: false,
     imageStarted: false,
+    imageDecoding: null,
     currentPixel: 0,
     gridData: new Array(1024).fill(0),
     headerData: {},
     errorCount: 0,
+    lastProcessedToneIndex: 0,
     rawReceivedFrequencies: [], // Raw frequency collection
     groupedHeaderFrequencies: [], // Grouped frequencies after majority voting
     groupedImageFrequencies: [],
@@ -23,6 +26,7 @@ let RX_audioContext, RX_analyser, RX_microphoneStream, RX_dataArray, RX_worker;
 let RX_isListening = false;
 let RX_listeningTimeout = null;
 let RX_startListeningTimeout = null;
+let RXtime;
 
 // Constants
 const RX_EXPECTED_FREQUENCIES = [
@@ -39,13 +43,13 @@ RX_worker = new Worker('../src/RX/RX_worker.js');
 RX_worker.onmessage = (event) => {
     const { detectedFrequency, startTime, duration, maxMagnitude, frequencyMagnitudes } = event.data;
 
-    const RXtime = startTime - RX_state.startTime;
-    // console.log(RXtime)
+    RXtime = startTime - RX_state.startTime;
+   // console.log(RXtime,startTime,RX_state.startTime);
     // Log the magnitudes for each frequency
     //  console.log('Start time', startTime);
 
     // Log the detected frequency and its magnitude
-    //  console.log(`Detected Frequency: ${detectedFrequency}, Magnitude: ${maxMagnitude}`);
+    console.log(`Detected Frequency: ${detectedFrequency}, Magnitude: ${maxMagnitude}`);
 
     if (detectedFrequency) {
         RX_state.rawReceivedFrequencies.push({ startTime, duration, frequency: detectedFrequency });
@@ -54,9 +58,9 @@ RX_worker.onmessage = (event) => {
         RX_state.headerReceived = true;
         const HeaderFrequencies = headerFECArr();
         console.log(HeaderFrequencies);
+
         if (!HeaderFrequencies) {
-            RX_state.headerReceived = false;
-            console.error("Failed to process header frequencies.");
+            RX_stopListening();
             return;
         }
 
@@ -161,11 +165,11 @@ async function RX_startMicrophoneStream(deviceId = null) {
         // Start real-time amplitude monitoring
         monitorAmplitude();
 
-        addToLog(`Microphone stream initialized using device: ${deviceId || 'default'}`,'info');
+        addToLog(`Microphone stream initialized using device: ${deviceId || 'default'}`, 'info');
         RX_startListening();
     } catch (error) {
         console.error('Error initializing microphone stream:', error);
-        addToLog('Failed to initialize microphone stream.','err');
+        addToLog('Failed to initialize microphone stream.', 'err');
     }
 }
 
@@ -207,19 +211,20 @@ function RX_startListening() {
 
     RX_startListeningTimeout = setTimeout(() => {
         if (!TX_Active) {
-            resetRXState();
+           // resetRXState();
+            RX_state.startTime = performance.now();
             toggleRxTag(true);
             RX_isListening = true;
-          addToLog('Listening for tones...','info');
-            RX_state.startTime = performance.now();
+            addToLog('Listening for tones...', 'info');
+            
             processMicrophoneInput();
 
             RX_listeningTimeout = setTimeout(() => {
                 if (!RX_state.headerReceived) {
                     RX_stopListening();
-                    RX_startListening();
+                    
                 }
-            }, 15000); // Timeout for RX listening
+            }, 20000); // Timeout for RX listening
         }
     }, timeUntilNextListen);
 }
@@ -227,10 +232,13 @@ function RX_startListening() {
 function RX_stopListening() {
     RX_isListening = false;
     toggleRxTag(false);
+    resetRXState()
     if (RX_audioContext) RX_audioContext.suspend();
     clearTimeout(RX_listeningTimeout);
     clearTimeout(RX_startListeningTimeout);
-   console.log('Stopped listening.');
+    console.log('Stopped listening.');
+    // reset and get ready for next time:
+    RX_startListening();
 }
 
 // Process microphone input
@@ -273,19 +281,25 @@ function applyHammingWindow(samples) {
 }
 
 function resetRXState() {
-    RX_state = {
-        headerReceived: false,
-        imageStarted: false,
-        currentPixel: 0,
-        gridData: new Array(1024).fill(0),
-        headerData: {},
-        errorCount: 0,
-        rawReceivedFrequencies: [],
-        groupedFrequencies: [],
-        toneLog: [],
-        calibration: { minTone: null, maxTone: null, offset: 0 },
+    
+    RX_state.datumStartTime= 0;
+    RX_state.headerReceived= false;
+    RX_state.imageStarted= false;
+    RX_state.currentPixel= 0;
+    RX_state.gridData= new Array(1024).fill(0);
+    RX_state.headerData= {};
+    RX_state.errorCount= 0;
+    RX_state.lastProcessedToneIndex= 0;
+    RX_state.rawReceivedFrequencies= []; // Raw frequency collection
+    RX_state.groupedHeaderFrequencies= []; // Grouped frequencies after majority voting
+    RX_state.groupedImageFrequencies= [];
+    RX_state.toneLog= [];
+    RX_state.calibration= {
+        minTone: null,
+            maxTone: null,
+            offset: 0,
+        }
     };
-}
 
 function toggleRxTag(active) {
     rxTag.classList.toggle('tag-inactive', !active);
@@ -294,7 +308,7 @@ function toggleRxTag(active) {
 
 function headerFECArr() {
     const repetitions = 3; // 3 repetitions of the header tones
-    const tonesPerHeader = 17; // Number of tones in the header
+    const tonesPerHeader = MAX_CHAR_HEADER; // Number of tones in the header
     const datumFrequency = CALIBRATION_TONE_MAX; // Calibration frequency to find datum timestamp
     const maxDatumTime = RX_state.startTime + 20000; // Maximum time for the datum start
     let SanitisedFrequencies = dropRogueTonesObjects(RX_state.rawReceivedFrequencies, HEADER_TONE_DURATION / (RX_ANALYSIS_INTERVAL * 2), "frequency")
@@ -309,7 +323,7 @@ function headerFECArr() {
         return null;
     }
 
-    const datumStartTime = datumElement.startTime + (HEADER_TONE_DURATION * 0.75);
+    RX_state.datumStartTime = datumElement.startTime + (HEADER_TONE_DURATION * 0.75);
 
     // Initialize groupedHeaderFrequencies with 'repetitions' number of empty arrays
     RX_state.groupedHeaderFrequencies = Array.from({ length: repetitions }, () => []);
@@ -318,7 +332,7 @@ function headerFECArr() {
     for (let repetition = 0; repetition < repetitions; repetition++) {
         for (let toneIndex = 0; toneIndex < tonesPerHeader; toneIndex++) {
             // Calculate the center time of the current tone
-            const toneCenterTime = datumStartTime + (repetition * tonesPerHeader + toneIndex) * HEADER_TONE_DURATION;
+            const toneCenterTime = RX_state.datumStartTime + (repetition * tonesPerHeader + toneIndex) * HEADER_TONE_DURATION;
 
             // Calculate the time window (±20% of HEADER_TONE_DURATION around the center)
             const timeWindowStart = toneCenterTime - (HEADER_TONE_DURATION * 0.1);
@@ -426,11 +440,16 @@ function decodeHeaderAndUpdateUI(headerFrequencies) {
     document.getElementById('image-type').textContent = mode || 'N/A';
     document.getElementById('sender-callsign').textContent = sender || 'N/A';
     document.getElementById('recipient-callsign').textContent = recipient || 'N/A';
-    addToLog("Header Recieved", 'rx',sender);
+    addToLog("Header Recieved", 'rx', sender);
     // Example: Add meta information (e.g., distance from sender's callsign)
     const distanceFrom = getCallsignMeta(sender); // Placeholder function to calculate distance
     document.getElementById('distance').textContent = distanceFrom || 'N/A';
-
+    // After processing the header and obtaining RX_state.datumStartTime
+    // Start the processing interval after the header is processed
+    let ImageInterval = FEC ? (TONE_DURATION*32*3) : TONE_DURATION*32;
+    RX_state.imageDecoding = setInterval(() => {
+        processImageData();
+    }, ImageInterval); // Adjust the interval timing as needed
     return { sender, recipient, mode }; // Return decoded components for further use if needed
 };
 
@@ -454,7 +473,7 @@ async function adjustGainToNoiseFloor(gainNode) {
 
             // Ensure dataArray contains valid values
             if (!dataArray.some((value) => !isNaN(value) && value !== 0)) {
-                addToLog("No audio detected! Check input stream.","err");
+                addToLog("No audio detected! Check input stream.", "err");
                 resolve(); // Abort adjustment
                 return;
             }
@@ -481,7 +500,7 @@ async function adjustGainToNoiseFloor(gainNode) {
                 }
 
                 // Adjust gain to normalize noise floor
-                const targetNoiseFloor = -20; // Target noise floor in dB
+                const targetNoiseFloor = -10; // Target noise floor in dB
                 const gainAdjustment = Math.pow(10, (targetNoiseFloor - avgNoiseFloor) / 20);
                 gainNode.gain.setValueAtTime(gainAdjustment, RX_audioContext.currentTime);
 

@@ -83,7 +83,7 @@ function renderGridToCanvas(canvas, gridData, targetSize, drawGridLines = true) 
 
     // Only draw grid overlay if drawGridLines is true
     if (drawGridLines) {
-        ctx.strokeStyle = 'rgba(50, 50, 50, 0.8)'; // 1px dark grey grid lines
+        ctx.strokeStyle = 'rgba(50, 50, 50, 0.35)'; // 1px dark grey grid lines
         for (let x = 0; x <= targetSize; x += pixelSize) {
             ctx.moveTo(x, 0);
             ctx.lineTo(x, targetSize);

@@ -7,6 +7,7 @@ let FEC;
 let CALIBRATION_TONE_MIN;
 let CALIBRATION_TONE_MAX;
 let CALIBRATION_TONE_DURATION;
+let MAX_CHAR_HEADER;
 let toneMaps = {};
 
 onmessage = function (e) {
@@ -21,6 +22,7 @@ onmessage = function (e) {
             CALIBRATION_TONE_MIN = data.CALIBRATION_TONE_MIN;
             CALIBRATION_TONE_MAX = data.CALIBRATION_TONE_MAX;
             CALIBRATION_TONE_DURATION = data.CALIBRATION_TONE_DURATION;
+            MAX_CHAR_HEADER = data.MAX_CHAR_HEADER;
             toneMaps = data.toneMaps;
             console.log('Worker initialized with constants and tone maps.');
             break;
@@ -87,19 +89,28 @@ function generateToneSequence(transmissionData) {
 
     // Step 4: Grid Data Transmission with FEC
     const gridData = transmissionData.gridData; // Flat array of color indices
-    for (let repeat = 0; repeat < FEC_REPEAT_COUNT; repeat++) {
-        for (const colorIndex of gridData) {
-            const frequency = toneMaps._32C_TONE_MAP[colorIndex];
-            if (frequency !== undefined) {
-                toneSequence.push({
-                    frequency: frequency,
-                    duration: TONE_DURATION
-                });
-            } else {
-                console.error(`No frequency mapping for color index: ${colorIndex}`);
+    const GRID_SIZE = 32; // Since it's a 32x32 grid
+
+    for (let line = 0; line < GRID_SIZE; line++) {
+        const startIndex = line * GRID_SIZE;
+        const endIndex = startIndex + GRID_SIZE;
+        const lineData = gridData.slice(startIndex, endIndex);
+
+        for (let repeat = 0; repeat < FEC_REPEAT_COUNT; repeat++) {
+            for (const colorIndex of lineData) {
+                const frequency = toneMaps._32C_TONE_MAP[colorIndex];
+                if (frequency !== undefined) {
+                    toneSequence.push({
+                        frequency: frequency,
+                        duration: TONE_DURATION
+                    });
+                } else {
+                    console.error(`No frequency mapping for color index: ${colorIndex}`);
+                }
             }
         }
     }
+
 
     return toneSequence;
 }
@@ -110,12 +121,12 @@ function createHeaderString(transmissionData) {
     const recipient = transmissionData.recipientCallsign || 'ALL';
     const mode = transmissionData.mode || '32C';
 
-    let headerString = `${sender}-${recipient}-${mode}`.padEnd(17,' ');
+    let headerString = `${sender}-${recipient}-${mode}`.padEnd(MAX_CHAR_HEADER, ' ');
     headerString = headerString.toUpperCase();
 
     // Replace unsupported characters with '-'
     headerString = headerString.replace(/[^A-Z0-9 -]/g, ' ');
-console.log(headerString);
+    console.log(headerString);
     return headerString;
 }
 
