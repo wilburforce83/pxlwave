@@ -278,3 +278,15 @@ function toggleTxTag(active) {
     txTag.classList.toggle('tag-inactive', !active);
     txTag.classList.toggle('tag-tx', active);
 }
+
+
+// Gain Control Function
+function setTxGain(value) {
+    if (!gainNode) {
+        console.error('GainNode is not initialized.');
+        return;
+    }
+    const clampedValue = Math.min(Math.max(value, 0), 1); // Clamp between 0 and 1
+    gainNode.gain.setValueAtTime(clampedValue, txAudioContext.currentTime);
+    console.log(`Transmission gain set to: ${clampedValue}`);
+}

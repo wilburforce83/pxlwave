@@ -324,6 +324,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+
+    // Gain slider for TX
+
+    // Update Gain Control from Slider
+const txGainSlider = document.getElementById('tx-gain');
+if (txGainSlider) {
+    txGainSlider.addEventListener('input', () => {
+        const gainValue = parseFloat(txGainSlider.value);
+        setTxGain(gainValue);
+    });
+}
+
     // Add a click event listener to the button
     document.getElementById('clearlog-button').addEventListener('click', function () {
         // Clear the contents of the element with ID 'log'

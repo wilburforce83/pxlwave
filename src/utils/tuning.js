@@ -4,8 +4,8 @@ const { ipcRenderer } = require('electron');
 const MIN_TONE_FREQ = 800;
 const BANDWIDTH = 1000;
 const FFT_SIZE = 4096; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
-const TONE_DURATION = 50; // milliseconds per tone
-const HEADER_TONE_DURATION = 150; // milliseconds for header tones
+const TONE_DURATION = 60; // milliseconds per tone
+const HEADER_TONE_DURATION = 100; // milliseconds for header tones
 const CALIBRATION_TONE_DURATION = 500;
 const GAP_DURATION = 5; // % of tone duration
 const MAGNITUDE_THRESH = 10;
@@ -17,8 +17,8 @@ const MAX_CHAR_HEADER = 17
 const RX_ANALYSIS_INTERVAL = 5;     // in ms the trigger interval for sampling
 const RX_startTime = 6; // Start listening + x seconds past the minute
 const RX_endTime = 15; // Timeout if no calibration tone detected by +15 seconds
-var RX_COMPRESSOR_STATE = true;
-var RX_BANDPASS_STATE = false;
+var RX_COMPRESSOR_STATE = false;
+var RX_BANDPASS_STATE = true;
 
 // TX Specific
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
@@ -84,7 +84,7 @@ const RX_CALIBRATION_DRIFT = BANDWIDTH/7; // Snap threshold for calibration tone
 const PROCESSING_INTERVAL = Math.ceil(
     (
         (TONE_DURATION * 1024 * (FEC ? 3 : 1)) +
-        (HEADER_TONE_DURATION * 3 * 15) +
+        (HEADER_TONE_DURATION * 3 * MAX_CHAR_HEADER) +
         5000
     ) / (1000 * 60)
 );
