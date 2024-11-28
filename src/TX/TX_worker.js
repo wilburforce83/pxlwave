@@ -19,6 +19,7 @@ onmessage = function (e) {
             HEADER_TONE_DURATION = data.HEADER_TONE_DURATION;
             GAP_DURATION = data.GAP_DURATION;
             FEC = data.FEC;
+            FEC_HD_REPEAT = data.FEC_HD_REPEAT;
             CALIBRATION_TONE_MIN = data.CALIBRATION_TONE_MIN;
             CALIBRATION_TONE_MAX = data.CALIBRATION_TONE_MAX;
             CALIBRATION_TONE_DURATION = data.CALIBRATION_TONE_DURATION;
@@ -56,7 +57,7 @@ onmessage = function (e) {
 // Function to generate the tone sequence
 function generateToneSequence(transmissionData) {
     const toneSequence = [];
-    const HEADER_REPEAT_COUNT = 3; // Number of times to repeat the header for error correction
+    const HEADER_REPEAT_COUNT = FEC_HD_REPEAT; // Number of times to repeat the header for error correction
     const FEC_REPEAT_COUNT = FEC ? 3 : 1; // Repeat count for grid data tones based on FEC
 
     // Step 1: Add Min Calibration Tone

@@ -28,13 +28,13 @@ function processImageData() {
     const gridData = RX_state.gridData || []; // Use existing gridData or initialize a new one
 
     // Calculate the total duration of the header
-    const totalHeaderDuration = 3 * MAX_CHAR_HEADER * HEADER_TONE_DURATION;
-    const imageStartTime = RX_state.datumStartTime + totalHeaderDuration - (TONE_DURATION * 2);
+    const totalHeaderDuration = FEC_HD_REPEAT * MAX_CHAR_HEADER * HEADER_TONE_DURATION;
+    const imageStartTime = RX_state.datumStartTime + totalHeaderDuration - (TONE_DURATION / 2);
 
     // Sanitize frequencies for image tones
     const SanitisedFrequencies = dropRogueTonesObjects(
         RX_state.rawReceivedFrequencies,
-        TONE_DURATION / (RX_ANALYSIS_INTERVAL * 3),
+        TONE_DURATION / (RX_ANALYSIS_INTERVAL * 2),
         "frequency"
     );
 
@@ -56,8 +56,8 @@ function processImageData() {
         const toneCenterTime = imageStartTime + toneIndex * TONE_DURATION;
 
         // Calculate the time window for the current tone
-        const timeWindowStart = toneCenterTime - (TONE_DURATION * 0.1);
-        const timeWindowEnd = toneCenterTime + (TONE_DURATION * 0.1);
+        const timeWindowStart = toneCenterTime - (TONE_DURATION * 0.3);
+        const timeWindowEnd = toneCenterTime + (TONE_DURATION * 0.3);
 
         // Find frequencies within the time window
         const toneFrequencies = SanitisedFrequencies
@@ -127,7 +127,7 @@ function processImageData() {
         // Image reception is complete
         console.log('Transmission Completed, stopping listening, and clearing image decoding');
         clearInterval(RX_state.imageDecoding);
-        RX_stopListening();
+        RX_stopListening('processImageData()');
     }
 }
 
