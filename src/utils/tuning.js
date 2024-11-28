@@ -3,7 +3,7 @@ const { ipcRenderer } = require('electron');
 // Modulation: these are the 5 big variables to change the modulation of pxlwave
 const MIN_TONE_FREQ = 800;
 const BANDWIDTH = 1000;
-const FFT_SIZE = 8192; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
+const FFT_SIZE = 4096; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
 const TONE_DURATION = 50; // milliseconds per tone
 const HEADER_TONE_DURATION = 75; // milliseconds for header tones
 const CALIBRATION_TONE_DURATION = 500;
@@ -14,10 +14,11 @@ const MAX_CHAR_HEADER = 17
 
 // RX specific
 
-const RX_ANALYSIS_INTERVAL = 2;     // in ms the trigger interval for sampling
+const RX_ANALYSIS_INTERVAL = 5;     // in ms the trigger interval for sampling
+const RX_MIN_DELTA_DIVISOR = 3;
 const RX_startTime = 6; // Start listening + x seconds past the minute
 const RX_endTime = 15; // Timeout if no calibration tone detected by +15 seconds
-var RX_COMPRESSOR_STATE = true;
+var RX_COMPRESSOR_STATE = false;
 var RX_BANDPASS_STATE = true;
 
 // TX Specific

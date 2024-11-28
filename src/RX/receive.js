@@ -41,7 +41,7 @@ RX_worker = new Worker('../src/RX/RX_worker.js');
 // receive.js
 
 RX_worker.onmessage = (event) => {
-    const { detectedFrequency, startTime, duration, maxMagnitude, frequencyMagnitudes } = event.data;
+    const { detectedFrequency, startTime, duration, maxMagnitude, frequencyMagnitudes, snr } = event.data;
 
     RXtime = startTime - RX_state.startTime;
   // console.log(RXtime,startTime,RX_state.startTime);
@@ -52,7 +52,7 @@ RX_worker.onmessage = (event) => {
    // console.log(`Detected Frequency: ${detectedFrequency}, Magnitude: ${maxMagnitude}`);
 
     if (detectedFrequency) {
-        RX_state.rawReceivedFrequencies.push({ startTime, duration, frequency: detectedFrequency });
+        RX_state.rawReceivedFrequencies.push({ startTime, duration, frequency: detectedFrequency ,snr: snr});
     }
     if (RXtime > 15000 && !RX_state.headerReceived) {
         console.log('Header Received');
@@ -212,7 +212,7 @@ function RX_startListening() {
     startRXCountdown(timeUntilNextListen);
 
     RX_startListeningTimeout = setTimeout(() => {
-        if (!TX_Active) {
+        if (!TX_Active && !RX_isListening) {
            // resetRXState();
             RX_state.startTime = performance.now();
             toggleRxTag(true);
@@ -294,6 +294,10 @@ function resetRXState() {
     RX_state.rawReceivedFrequencies= []; // Raw frequency collection
     RX_state.groupedHeaderFrequencies= []; // Grouped frequencies after majority voting
     RX_state.groupedImageFrequencies= [];
+    RX_state.receivedLines = [];
+    RX_state.imageDecoding = 0;
+    RX_state.lastRenderedLineIndex = 0;
+    RX_state.currentPixel = 0;
     RX_state.toneLog= [];
     RX_state.calibration= {
         minTone: null,

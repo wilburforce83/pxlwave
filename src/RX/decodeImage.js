@@ -2,20 +2,28 @@
 
 
 function mapFrequencyToColorIndex(frequency) {
+    let closestIndex = 50;
     if (frequency === null || isNaN(frequency)) {
         // Handle missing or invalid frequency
-        return 0; // Default color index (e.g., black)
+        closestIndex = gridData[gridData.length - 1];
+        RX_state.errorCount++;
+        return closestIndex; // Default color index (e.g., black)
     }
 
     // Find the index in _32C_TONE_MAP where the frequency is closest to the input frequency
     let minDiff = Infinity;
-    let closestIndex = 0;
+
     for (let i = 0; i < _32C_TONE_MAP.length; i++) {
         const diff = Math.abs(frequency - _32C_TONE_MAP[i]);
         if (diff < minDiff) {
             minDiff = diff;
             closestIndex = i;
         }
+    }
+    // if index returns as 50 (not found, use previous colour index)
+    if (closestIndex === 50) {
+        closestIndex = gridData[gridData.length - 1];
+        RX_state.errorCount++;
     }
     return closestIndex;
 }
@@ -28,13 +36,13 @@ function processImageData() {
     const gridData = RX_state.gridData || []; // Use existing gridData or initialize a new one
 
     // Calculate the total duration of the header
-    const totalHeaderDuration = FEC_HD_REPEAT * MAX_CHAR_HEADER * HEADER_TONE_DURATION;
-    const imageStartTime = RX_state.datumStartTime + totalHeaderDuration - (TONE_DURATION / 2);
+    const totalHeaderDuration = (FEC_HD_REPEAT * MAX_CHAR_HEADER * HEADER_TONE_DURATION) + HEADER_TONE_DURATION - (TONE_DURATION / 2);
+    const imageStartTime = RX_state.datumStartTime + totalHeaderDuration //- (TONE_DURATION / 2);
 
     // Sanitize frequencies for image tones
     const SanitisedFrequencies = dropRogueTonesObjects(
         RX_state.rawReceivedFrequencies,
-        TONE_DURATION / (RX_ANALYSIS_INTERVAL * 2),
+        TONE_DURATION / (RX_ANALYSIS_INTERVAL * RX_MIN_DELTA_DIVISOR),
         "frequency"
     );
 
@@ -56,8 +64,8 @@ function processImageData() {
         const toneCenterTime = imageStartTime + toneIndex * TONE_DURATION;
 
         // Calculate the time window for the current tone
-        const timeWindowStart = toneCenterTime - (TONE_DURATION * 0.3);
-        const timeWindowEnd = toneCenterTime + (TONE_DURATION * 0.3);
+        const timeWindowStart = toneCenterTime - (TONE_DURATION * 0.25);
+        const timeWindowEnd = toneCenterTime + (TONE_DURATION * 0.25);
 
         // Find frequencies within the time window
         const toneFrequencies = SanitisedFrequencies
@@ -116,16 +124,24 @@ function processImageData() {
     RX_state.gridData = gridData;
 
     let canvas = document.getElementById('rx-display');
-    let GLcount = 0;
-    GLcount++;
-    let gridline = GLcount <= 1;
+
     // Render the canvas after each line is processed
-    renderGridToCanvas(canvas, gridData, 256, gridline);
+    renderGridToCanvas(canvas, gridData, 256, false);
 
     // Check if the image is fully received
     if (RX_state.lastProcessedToneIndex >= totalPixels) {
         // Image reception is complete
+        const averageSNR = calculateAverageSNR(RX_state.rawReceivedFrequencies);
+        let now = new Date();
+        let stats = {
+            snr: averageSNR,
+            errorCount: RX_state.errorCount,
+            gridData: gridData,
+            timeReceived: now
+        }
         console.log('Transmission Completed, stopping listening, and clearing image decoding');
+        console.log(stats);
+        addToLog('RX Completed!', 'win')
         clearInterval(RX_state.imageDecoding);
         RX_stopListening('processImageData()');
     }
@@ -163,4 +179,7 @@ function ImageMajorityVote(lineRepetitions) {
 
     return majorityLine;
 }
+
+
+
 

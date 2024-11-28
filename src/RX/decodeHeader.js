@@ -10,7 +10,7 @@ function headerFECArr(startTime) {
     const tonesPerHeader = MAX_CHAR_HEADER; // Number of tones in the header
     const datumFrequency = CALIBRATION_TONE_MAX; // Calibration frequency to find datum timestamp
     const maxDatumTime = startTime + 20000; // Maximum time for the datum start
-    let SanitisedFrequencies = dropRogueTonesObjects(RX_state.rawReceivedFrequencies, HEADER_TONE_DURATION / (RX_ANALYSIS_INTERVAL * 2), "frequency")
+    let SanitisedFrequencies = dropRogueTonesObjects(RX_state.rawReceivedFrequencies, HEADER_TONE_DURATION / (RX_ANALYSIS_INTERVAL * 4), "frequency")
 console.log('sanatised frequencies:', SanitisedFrequencies);
     // Find the datum startTime (last occurrence of 1800 Hz within the maxDatumTime window)
     const datumElement = SanitisedFrequencies
@@ -22,7 +22,7 @@ console.log('sanatised frequencies:', SanitisedFrequencies);
         return null;
     }
 
-    RX_state.datumStartTime = datumElement.startTime + (HEADER_TONE_DURATION * 0.75);
+    RX_state.datumStartTime = datumElement.startTime //+ (HEADER_TONE_DURATION * 0.75);
     console.log(`datumStartTime = ${RX_state.datumStartTime}, datumElement = ${datumElement.startTime}`);
     console.log(datumElement);
     console.log(RX_state.rawReceivedFrequencies);
@@ -36,8 +36,8 @@ console.log('sanatised frequencies:', SanitisedFrequencies);
             const toneCenterTime = RX_state.datumStartTime + (repetition * tonesPerHeader + toneIndex) * HEADER_TONE_DURATION;
 
             // Calculate the time window (±20% of HEADER_TONE_DURATION around the center)
-            const timeWindowStart = toneCenterTime - (HEADER_TONE_DURATION * 0.1);
-            const timeWindowEnd = toneCenterTime + (HEADER_TONE_DURATION * 0.1);
+            const timeWindowStart = toneCenterTime - (HEADER_TONE_DURATION * 0.25);
+            const timeWindowEnd = toneCenterTime + (HEADER_TONE_DURATION * 0.25);
 
             // Find all frequencies whose startTime falls within the time window
             const toneFrequencies = SanitisedFrequencies
