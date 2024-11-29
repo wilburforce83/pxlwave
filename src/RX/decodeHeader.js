@@ -143,8 +143,21 @@ function decodeHeaderAndUpdateUI(headerFrequencies) {
     document.getElementById('recipient-callsign').textContent = recipient || 'N/A';
     addToLog("Header Recieved", 'rx', sender);
     // Example: Add meta information (e.g., distance from sender's callsign)
-    const distanceFrom = getCallsignMeta(sender); // Placeholder function to calculate distance
-    document.getElementById('distance').textContent = distanceFrom || 'N/A';
+    contact.callsign = sender
+        if (recipient === preferences.callsign){
+          contact.directContact = true;  
+        }
+    getCallsignMeta(sender).then(qrz => {
+       contact.fname = qrz.fname
+       contact.name = qrz.name
+       contact.addr2 = qrz.address
+       contact.country = qrz.country
+       contact.coordinates = qrz.coords
+       contact.distanceKM = qrz.distance
+    }).catch(error => {
+        addToLog('Error fetching distance:', 'err');
+        document.getElementById('distance').textContent = 'N/A';
+    });;
     // After processing the header and obtaining RX_state.datumStartTime
     // Start the processing interval after the header is processed
     let ImageInterval = FEC ? (TONE_DURATION * 32 * 3) : TONE_DURATION * 32;

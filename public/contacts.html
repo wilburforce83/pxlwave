@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Contacts</title>
+    <link rel="stylesheet" href="feather.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+
+        .table-container {
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            color: #fff;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 7px;
+            border: 1px solid #444;
+            color: #fff;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #222;
+            color: #fff;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+       
+        input {
+            padding: 8px;
+            width: 100%;
+            margin-bottom: 10px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background-color: #1e1e1e;
+            color: #f5f5f5;
+        }
+
+        .highlight {
+            background-color: #ff6f61;
+            color: #fff;
+        }
+        td:first-child {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>piqSL Contacts</h1>
+    <input type="text" id="searchInput" placeholder="Search...">
+
+    <div class="table-container">
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">Image</th>
+                    <th onclick="sortTable(1)">Callsign</th>
+                    <th onclick="sortTable(2)">Name</th>
+                    <th onclick="sortTable(3)">Country</th>
+                    <th onclick="sortTable(4)">Timestamp</th>
+                    <th onclick="sortTable(5)">Distance (KM)</th>
+                    <th onclick="sortTable(6)">Grade</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be populated dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+       const { ipcRenderer } = require('electron');
+
+       let data;
+        // pxlwaveConv.js functions
+        const colorPalette = [
+            "#000000", "#00021c", "#1c284d", "#343473", "#732866", "#2d5280", "#993649", "#d9214f",
+            "#a6216e", "#4d7a99", "#d94c87", "#7497a6", "#b36159", "#f25565", "#f28d85", "#f27961",
+            "#b38f24", "#b3b324", "#17735f", "#119955", "#2469b3", "#1ba683", "#67b31b", "#a3ccd9",
+            "#47cca9", "#96e3c9", "#f09c60", "#f0bb90", "#b3ccd9", "#f7c93e", "#f0edd8", "#0bafe6"
+        ];
+
+        function renderGridToCanvas(canvas, gridData, targetSize, drawGridLines = true) {
+            const ctx = canvas.getContext('2d');
+            const pixelSize = targetSize / 32;
+            canvas.width = targetSize;
+            canvas.height = targetSize;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < 32; i++) {
+                for (let j = 0; j < 32; j++) {
+                    const colorIndex = gridData[i * 32 + j];
+                    const color = colorPalette[colorIndex];
+                    ctx.fillStyle = color;
+                    ctx.fillRect(j * pixelSize, i * pixelSize, pixelSize, pixelSize);
+                }
+            }
+
+            if (drawGridLines) {
+                ctx.strokeStyle = 'rgba(50, 50, 50, 0.35)';
+                for (let x = 0; x <= targetSize; x += pixelSize) {
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, targetSize);
+                }
+                for (let y = 0; y <= targetSize; y += pixelSize) {
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(targetSize, y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        // Main script
+        const tableBody = document.querySelector("#dataTable tbody");
+        const searchInput = document.getElementById("searchInput");
+
+        // Populate table
+        function populateTable(dataArray) {
+            tableBody.innerHTML = "";
+            dataArray.forEach((item, index) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td><canvas id="canvas-${index}"></canvas></td>
+                    <td>${item.callsign.trim()}</td>
+                    <td>${item.fname +' '+item.name || "N/A"}</td>
+                    <td>${item.country || "N/A"}</td>
+                    <td>${new Date(item.timeStamp).toLocaleString()}</td>
+                    <td>${item.distanceKM.toFixed(2)}</td>
+                    <td>${item.grading.grade}</td>
+                `;
+                tableBody.appendChild(row);
+
+                // Render the gridData into the canvas
+                const canvas = document.getElementById(`canvas-${index}`);
+                renderGridToCanvas(canvas, item.gridData, 32, false); // 64px canvas size
+            });
+        }
+
+        // Search functionality
+        searchInput.addEventListener("input", () => {
+            const query = searchInput.value.toLowerCase();
+            const filteredData = data.filter(item => 
+                item.callsign.toLowerCase().includes(query) ||
+                (item.name || "").toLowerCase().includes(query) ||
+                (item.country || "").toLowerCase().includes(query) ||
+                (item.grading.grade || "").toLowerCase().includes(query)
+            );
+            populateTable(filteredData);
+        });
+
+        // Sort functionality
+        function sortTable(columnIndex) {
+            const rows = Array.from(tableBody.querySelectorAll("tr"));
+            const sortedRows = rows.sort((a, b) => {
+                let aText = a.cells[columnIndex].innerText;
+                let bText = b.cells[columnIndex].innerText;
+
+                // Handle numeric sorting
+                if (columnIndex === 4 || columnIndex === 5) {
+                    aText = parseFloat(aText) || 0;
+                    bText = parseFloat(bText) || 0;
+                    return aText - bText;
+                }
+
+                return aText.localeCompare(bText, undefined, { numeric: true });
+            });
+            tableBody.innerHTML = "";
+            sortedRows.forEach(row => tableBody.appendChild(row));
+        }
+
+        LoadContacts();
+
+
+
+
+
+
+        function LoadContacts() {
+    ipcRenderer.invoke('load-contact')
+        .then(result => {
+            // Handle the result here
+           // console.log('Save result:', result);
+           // Initialize table
+           data = result;
+        populateTable(result);
+        })
+        .catch(error => {
+            // Handle any errors here
+            console.error('Error saving card:', error);
+        });
+}
+    </script>
+</body>
+</html>

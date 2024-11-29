@@ -2,10 +2,10 @@
 const { ipcRenderer } = require('electron');
 // Modulation: these are the 5 big variables to change the modulation of pxlwave
 const MIN_TONE_FREQ = 800;
-const BANDWIDTH = 1000;
-const FFT_SIZE = 4096; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
+const BANDWIDTH = 1500;
+const FFT_SIZE = 8192; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
 const TONE_DURATION = 50; // milliseconds per tone
-const HEADER_TONE_DURATION = 75; // milliseconds for header tones
+const HEADER_TONE_DURATION = 65; // milliseconds for header tones
 const CALIBRATION_TONE_DURATION = 500;
 const GAP_DURATION = 5; // % of tone duration
 const MAGNITUDE_THRESH = 10;
@@ -25,6 +25,7 @@ var RX_BANDPASS_STATE = true;
 const USE_SMOOTH_TRANSITIONS = true; // Set to false to disable smooth transitions
 const FEC = true;
 const FEC_HD_REPEAT = 5 // how many times to repeat the header: image repeats 3 times only on FEC
+const FEC_BD_REPEAT = 4 // how many times the image repeats
 
 
 const FFT_RES = {
@@ -99,11 +100,17 @@ const RX_CALIBRATION_DRIFT = BANDWIDTH / 7; // Snap threshold for calibration to
 /// Synchronization: Frequency that transmissions can be made in MINUTES
 const PROCESSING_INTERVAL = Math.ceil(
     (
-        (TONE_DURATION * 1024 * (FEC ? 3 : 1)) +
+        (TONE_DURATION * 1024 * (FEC ? FEC_BD_REPEAT : 1)) +
         (HEADER_TONE_DURATION * FEC_HD_REPEAT * MAX_CHAR_HEADER) +
-        5000
+        7500
     ) / (1000 * 60)
 );
+
+console.log((
+    (TONE_DURATION * 1024 * (FEC ? FEC_BD_REPEAT : 1)) +
+    (HEADER_TONE_DURATION * FEC_HD_REPEAT * MAX_CHAR_HEADER) +
+    7500
+) / (1000 * 60))
 
 console.log('PROCESSING_INTERVAL:', PROCESSING_INTERVAL);
 

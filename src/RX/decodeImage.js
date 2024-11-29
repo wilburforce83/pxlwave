@@ -31,7 +31,7 @@ function mapFrequencyToColorIndex(frequency) {
 function processImageData() {
     const lines = 32; // Number of lines in the image
     const pixelsPerLine = 32; // Number of pixels per line
-    const FEC_REPEAT_COUNT = 3; // Number of times each line is repeated
+    const FEC_REPEAT_COUNT = FEC_BD_REPEAT; // Number of times each line is repeated
     const totalPixels = lines * pixelsPerLine * FEC_REPEAT_COUNT;
     const gridData = RX_state.gridData || []; // Use existing gridData or initialize a new one
 
@@ -132,19 +132,33 @@ function processImageData() {
     if (RX_state.lastProcessedToneIndex >= totalPixels) {
         // Image reception is complete
         const averageSNR = calculateAverageSNR(RX_state.rawReceivedFrequencies);
+        const grading = calculateQualityAndRarity(RX_state.errorCount, averageSNR, contact.distanceKM);
         let now = new Date();
-        let stats = {
-            snr: averageSNR,
-            errorCount: RX_state.errorCount,
-            gridData: gridData,
-            timeReceived: now
-        }
-        console.log('Transmission Completed, stopping listening, and clearing image decoding');
-        console.log(stats);
-        addToLog('RX Completed!', 'win')
-        clearInterval(RX_state.imageDecoding);
-        RX_stopListening('processImageData()');
+        // update contact details:
+        contact.grading = grading;
+        contact.gridData = gridData;
+        contact.snr = averageSNR;
+        contact.errorCount = RX_state.errorCount;
+        contact.timeStamp = now;
+        saveContact(contact);
+       
     }
+}
+
+function saveContact(data) {
+    ipcRenderer.invoke('save-contact', data)
+        .then(result => {
+            // Handle the result here
+            console.log('Save result:', data);
+            console.log('Transmission Completed, stopping listening, and clearing image decoding');
+            addToLog(`New contact! ${data.grading.grade}, Total score; ${data.grading.totalScore}`, 'win')
+            clearInterval(RX_state.imageDecoding);
+            RX_stopListening('processImageData()');
+        })
+        .catch(error => {
+            // Handle any errors here
+            console.error('Error saving card:', error);
+        });
 }
 
 // Function to perform majority vote on repeated lines

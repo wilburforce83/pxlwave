@@ -8,6 +8,8 @@ let currentGridData = [];
 let originalGridData = [];
 let currentStream; // To keep track of the current audio stream
 let isDrawingWaterfall = false; // Flag to control the waterfall animation
+let preferences;
+let savedContacts;
 
 // Elements for TX and RX tags
 const txTag = document.getElementById('tx-tag');
@@ -247,7 +249,7 @@ async function loadFirstCard() {
         renderGridToCanvas(imageCanvas, firstCard.gridData, 128, false);
         originalGridData = firstCard.gridData.slice();
         currentGridData = firstCard.gridData;
-        const preferences = await ipcRenderer.invoke('load-preferences');
+        preferences = await ipcRenderer.invoke('load-preferences');
         document.getElementById('from-callsign').value = preferences.callsign;
     }
 }
@@ -303,6 +305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     displayUtcTime(); // Show UTC time
     loadAudioDevices(); // Load the audio devices
     loadFirstCard(); // Load the first saved card
+    LoadContacts();
 
     // Event listener for closing the modal
     document.getElementById('modal-close').addEventListener('click', () => {
@@ -324,6 +327,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    
+
+    
+
 
     // Gain slider for TX
 
@@ -342,3 +349,5 @@ if (txGainSlider) {
         document.getElementById('log').innerHTML = '';
     });
 });
+
+

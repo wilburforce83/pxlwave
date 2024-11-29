@@ -25,6 +25,7 @@ txWorker.postMessage({
         GAP_DURATION,
         FEC,
         FEC_HD_REPEAT,
+        FEC_BD_REPEAT,
         CALIBRATION_TONE_MIN,
         CALIBRATION_TONE_MAX,
         CALIBRATION_TONE_DURATION, // Add this line

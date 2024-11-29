@@ -80,6 +80,54 @@ async function createYourCardsWindow() {
     });
 }
 
+async function createContactsWindow() {
+    contactsWindow = new BrowserWindow({
+        width: 1240,
+        height: 600,
+        backgroundColor: '#1e1e1e',
+        parent: mainWindow,
+        resizable: false,
+        icon: path.join(__dirname, 'icons/app-icon.png'),
+        show: false,
+        webPreferences: {
+            contextIsolation: false,
+            nodeIntegration: true,
+        },
+    });
+
+    contactsWindow.loadFile(path.join(__dirname, '../public/contacts.html'));
+    contactsWindow.webContents.openDevTools({ mode: 'detach' });
+    contactsWindow.once('ready-to-show', () => {
+        contactsWindow.show();
+    });
+
+    if (process.platform !== 'win32') {
+        const menuTemplate = [
+            {
+                label: 'File',
+                submenu: [
+                    {
+                        label: 'Quit',
+                        accelerator: 'CmdOrCtrl+Q',
+                        click: () => {
+                            contactsWindow.close();
+                        }
+                    }
+                ]
+            }
+        ];
+        const menu = Menu.buildFromTemplate(menuTemplate);
+        contactsWindow.setMenu(menu);
+    } else {
+        contactsWindow.setMenu(null);
+    }
+
+    contactsWindow.on('closed', () => {
+        contactsWindow = null;
+    });
+}
+
+
 async function createCollectionsWindow() {
     collectionsWindow = new BrowserWindow({
         width: 800,
@@ -176,6 +224,10 @@ const menuTemplate = [
                 click: createYourCardsWindow,
             },
             {
+                label: 'Contacts',
+                click: createContactsWindow,
+            },
+            {
                 label: 'Collections',
                 click: createCollectionsWindow,
             },
@@ -266,40 +318,24 @@ ipcMain.handle('save-receive-preferences', async (event, preferences) => {
 
 // COLLECTION HANDLERS
 
-// Handle loading all received images (collection)
-ipcMain.handle('load-collection', async () => {
+// Handle saving card data
+ipcMain.handle('save-contact', async (event, contact) => {
     const store = await setupElectronStore();
-    let result = store.get('collection');
-    console.log(result)
-    return result || []; // Return all received images
+    const contacts = store.get('contacts', []); // Get existing cards or initialize an empty array
+    contacts.push(contact); // Add the new card data
+    store.set('contacts', contacts); // Save the updated array back to the store
+    return 'Card saved successfully!';
 });
 
-// Handle saving a received image to the collection
-ipcMain.handle('save-to-collection', async (event, receivedData) => {
+// Handle loading all saved cards
+ipcMain.handle('load-contact', async () => {
     const store = await setupElectronStore();
-    console.log(receivedData);
-    const collection = store.get('collection', []); // Get existing collection
-    receivedData.id = new Date().getTime(); // Generate a unique ID based on timestamp
-    collection.push(receivedData); // Add the new received image
-    store.set('collection', collection); // Save the updated collection
-    return { status: 'success', message: 'Image saved successfully!' };
+    return store.get('contacts') || []; // Return all saved cards from the store
 });
 
-// Handle deleting an image from the collection
-ipcMain.handle('delete-from-collection', async (event, imageId) => {
-    const store = await setupElectronStore();
-    const collection = store.get('collection', []); // Get the existing collection
 
-    const updatedCollection = collection.filter(image => image.id !== imageId); // Only keep images that do not match the id
 
-    // Only update the store if there was a change
-    if (collection.length !== updatedCollection.length) {
-        store.set('collection', updatedCollection); // Save the updated list back to the store
-        return { status: 'success', message: 'Image deleted successfully!' };
-    } else {
-        return { status: 'error', message: 'Image not found!' };
-    }
-});
+
 
 // Check if the operating system is macOS
 if (process.platform === 'darwin') {

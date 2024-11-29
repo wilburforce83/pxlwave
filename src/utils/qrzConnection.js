@@ -49,7 +49,8 @@ async function getCallsignMeta(callsign) {
             distance: distance || 0,
             address: addr2 || '',
             country: country || '',
-            grid: grid || ''
+            grid: grid || '',
+            coords: coords
         };
         console.log(callsign, qrz);
 
