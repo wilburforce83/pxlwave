@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Tilt Card with Natural Flip and Wobble Effect</title>
+    <style>
+        body {
+            perspective: 1000px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #343333; /* Updated background color */
+        }
+
+        .card-container {
+            width: 360px;
+            height: 500px;
+            perspective: 1000px;
+        }
+
+        .card-tilt {
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+        }
+
+        .card-front, .card-back {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .card-front {
+            background-image: url('/public/assets/cardParts/front.png');
+        }
+
+        .card-back {
+            background-image: url('/public/assets/cardParts/back.png');
+            transform: rotateY(180deg);
+        }
+
+        /* Sheen element */
+        .sheen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(
+                circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+                rgba(255, 255, 255, 0.4),
+                rgba(255, 255, 255, 0) 60%
+            );
+            opacity: var(--sheen-opacity, 0);
+            transition: opacity 0.3s ease-out;
+            /* Apply the mask */
+            mask-image: url('/public/assets/cardParts/front.png');
+            mask-size: cover;
+            mask-repeat: no-repeat;
+            mask-position: center;
+            /* For WebKit browsers */
+            -webkit-mask-image: url('/public/assets/cardParts/front.png');
+            -webkit-mask-size: cover;
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+        }
+
+        .card-back .sheen {
+            /* Update the mask to use back image */
+            mask-image: url('/public/assets/cardParts/back.png');
+            -webkit-mask-image: url('/public/assets/cardParts/back.png');
+        }
+
+        /* Flip and Zoom Animations with Slower Speed and Wobble */
+        .card.animate {
+            animation: flipZoomIn 1s forwards; /* Increased duration */
+        }
+
+        .card.animate-back {
+            animation: flipZoomOut 1s forwards; /* Increased duration */
+        }
+
+        @keyframes flipZoomIn {
+            0% {
+                transform: rotateY(0deg) scale(1);
+            }
+            40% {
+                transform: rotateY(190deg) scale(1.1); /* Over-rotation */
+            }
+            60% {
+                transform: rotateY(170deg) scale(1.15); /* Correction */
+            }
+            80% {
+                transform: rotateY(180deg) scale(1.2); /* Settle */
+            }
+            100% {
+                transform: rotateY(180deg) scale(1.2);
+            }
+        }
+
+        @keyframes flipZoomOut {
+            0% {
+                transform: rotateY(180deg) scale(1.2);
+            }
+            40% {
+                transform: rotateY(370deg) scale(1.15); /* Over-rotation */
+            }
+            60% {
+                transform: rotateY(350deg) scale(1.1); /* Correction */
+            }
+            80% {
+                transform: rotateY(360deg) scale(1); /* Settle */
+            }
+            100% {
+                transform: rotateY(360deg) scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card-container">
+        <div class="card-tilt">
+            <div class="card">
+                <div class="card-face card-front">
+                    <div class="sheen"></div>
+                </div>
+                <div class="card-face card-back">
+                    <div class="sheen"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cardContainer = document.querySelector('.card-container');
+        const cardTilt = cardContainer.querySelector('.card-tilt');
+        const card = cardTilt.querySelector('.card');
+        const sheens = card.querySelectorAll('.sheen');
+
+        let isFlipped = false;
+
+        cardContainer.addEventListener('mousemove', (e) => {
+            const rect = cardContainer.getBoundingClientRect();
+            const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+            const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+            sheens.forEach(sheen => {
+                sheen.style.setProperty('--mouse-x', `${xPercent}%`);
+                sheen.style.setProperty('--mouse-y', `${yPercent}%`);
+                sheen.style.setProperty('--sheen-opacity', '0.4');
+            });
+
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+
+            const rotateX = ((e.clientY - rect.top - centerY) / centerY) * 10;
+            const rotateY = ((e.clientX - rect.left - centerX) / centerX) * -10;
+
+            cardTilt.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        });
+
+        cardContainer.addEventListener('mouseleave', () => {
+            cardTilt.style.transform = 'rotateX(0deg) rotateY(0deg)';
+            sheens.forEach(sheen => {
+                sheen.style.setProperty('--sheen-opacity', '0');
+            });
+        });
+
+        cardContainer.addEventListener('click', () => {
+            if (!card.classList.contains('animating')) {
+                if (!isFlipped) {
+                    card.classList.add('animating', 'animate');
+                    isFlipped = true;
+                } else {
+                    card.classList.add('animating', 'animate-back');
+                    isFlipped = false;
+                }
+
+                // Remove 'animating' class after animation ends
+                card.addEventListener('animationend', () => {
+                    card.classList.remove('animating', 'animate', 'animate-back');
+                }, { once: true });
+            }
+        });
+    </script>
+</body>
+</html>
