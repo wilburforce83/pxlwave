@@ -96,6 +96,46 @@ function renderGridToCanvas(canvas, gridData, targetSize, drawGridLines = true) 
     }
 }
 
+// Function to render grid to base64 image
+function renderGridToBase64(gridData, targetSize, drawGridLines = true) {
+    const canvas = document.createElement('canvas');
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+
+    const ctx = canvas.getContext('2d');
+    const pixelSize = targetSize / 32; // Assuming grid is 32x32
+
+    // Render each pixel color
+    for (let i = 0; i < 32; i++) {
+        for (let j = 0; j < 32; j++) {
+            const colorIndex = gridData[i * 32 + j];
+            const color = colorPalette[colorIndex];
+            ctx.fillStyle = color;
+            ctx.fillRect(j * pixelSize, i * pixelSize, pixelSize, pixelSize);
+        }
+    }
+
+    // Only draw grid overlay if drawGridLines is true
+    if (drawGridLines) {
+        ctx.strokeStyle = 'rgba(50, 50, 50, 0.35)'; // 1px dark grey grid lines
+        for (let x = 0; x <= targetSize; x += pixelSize) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, targetSize);
+        }
+        for (let y = 0; y <= targetSize; y += pixelSize) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(targetSize, y);
+        }
+        ctx.stroke();
+    }
+
+    // Get the base64 image data
+    const base64Image = canvas.toDataURL();
+
+    return base64Image;
+}
+
+
 
 // Add this function to pxlwaveConv.js
 
@@ -122,6 +162,7 @@ module.exports = {
     colorPalette,
     convertToGridData,
     renderGridToCanvas,
+    renderGridToBase64,
     getClosestColorIndex,
     colorDistance,
     hexToRgb,

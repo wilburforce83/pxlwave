@@ -10,6 +10,7 @@ let contact = {
     timeStamp: '',
     distanceKM: 0,
     gridData: [],
+    cardImage: '',
     errorCount: 0,
     snr: 0,
     grading: {

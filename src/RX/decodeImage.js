@@ -133,11 +133,13 @@ function processImageData() {
         // Image reception is complete
         const averageSNR = calculateAverageSNR(RX_state.rawReceivedFrequencies);
         const grading = calculateQualityAndRarity(RX_state.errorCount, averageSNR, contact.distanceKM);
+        const image = renderGridToBase64(gridData, 512);
         let now = new Date();
         // update contact details:
         contact.grading = grading;
         contact.gridData = gridData;
         contact.snr = averageSNR;
+        contact.image = image;
         contact.errorCount = RX_state.errorCount;
         contact.timeStamp = now;
         saveContact(contact);

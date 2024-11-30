@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Collections</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
         body {
             perspective: 1000px;
@@ -13,9 +14,10 @@
         }
 
         .card-container {
-            width: 360px;
-            height: 500px;
-            perspective: 1000px;
+            width: 180px; /* Adjusted for example; adjust based on actual size */
+            height: 250px; /* Adjusted for example; adjust based on actual size */
+            perspective: 600px;
+            position: relative; /* Ensure absolute children are relative to this container */
         }
 
         .card-tilt {
@@ -23,6 +25,10 @@
             height: 100%;
             transform-style: preserve-3d;
             transition: transform 0.1s ease-out;
+            transform-origin: center center;
+            /* Initialize the transform */
+            transform: rotateX(0deg) rotateY(0deg) scale(1);
+            position: relative; /* For stacking context */
         }
 
         .card {
@@ -30,6 +36,7 @@
             height: 100%;
             position: relative;
             transform-style: preserve-3d;
+            border: 0px !important;
         }
 
         .card-face {
@@ -46,12 +53,54 @@
         }
 
         .card-front {
-            background-image: url('/public/assets/cardParts/front.png');
+            background-image: url('assets/cardParts/front.png');
+            position: relative; /* To position child elements absolutely */
         }
 
         .card-back {
-            background-image: url('/public/assets/cardParts/back.png');
+            background-image: url('assets/cardParts/back.png');
             transform: rotateY(180deg);
+        }
+
+        /* Test Image Container */
+        .test-image-container {
+            position: absolute;
+            top: 15px; /* 60px from the top */
+            left: 10px; /* 40px from the left */
+            width: 160px; /* Adjust size as needed */
+            height: 160px; /* Adjust size as needed */
+            z-index: 1; /* Below the background image and sheen */
+        }
+
+        .test-image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Glitter Effect */
+        .glitter-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('assets/glitter.png') repeat; /* Use a transparent glitter PNG */
+            opacity: 0.7;
+            animation: glitter-animation 2s linear infinite;
+            z-index: 2; /* Above the test image */
+            pointer-events: none;
+        }
+
+        @keyframes glitter-animation {
+            from {
+                background-position: 0 0;
+            }
+            to {
+                background-position: 100px 100px;
+            }
         }
 
         /* Sheen element */
@@ -64,73 +113,65 @@
             pointer-events: none;
             background: radial-gradient(
                 circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-                rgba(255, 255, 255, 0.4),
+                rgba(217, 255, 250, 0.949),
                 rgba(255, 255, 255, 0) 60%
             );
             opacity: var(--sheen-opacity, 0);
             transition: opacity 0.3s ease-out;
             /* Apply the mask */
-            mask-image: url('/public/assets/cardParts/front.png');
+            mask-image: url('assets/cardParts/front.png');
             mask-size: cover;
             mask-repeat: no-repeat;
             mask-position: center;
             /* For WebKit browsers */
-            -webkit-mask-image: url('/public/assets/cardParts/front.png');
+            -webkit-mask-image: url('assets/cardParts/front.png');
             -webkit-mask-size: cover;
             -webkit-mask-repeat: no-repeat;
             -webkit-mask-position: center;
+            z-index: 3; /* Above all other layers */
         }
 
         .card-back .sheen {
             /* Update the mask to use back image */
-            mask-image: url('/public/assets/cardParts/back.png');
-            -webkit-mask-image: url('/public/assets/cardParts/back.png');
+            mask-image: url('assets/cardParts/back.png');
+            -webkit-mask-image: url('assets/cardParts/back.png');
         }
 
-        /* Flip and Zoom Animations with Slower Speed and Wobble */
-        .card.animate {
-            animation: flipZoomIn 1s forwards; /* Increased duration */
+        /* Flip and Zoom Animations */
+        .card-tilt.animate {
+            animation: flipZoomIn 2.5s forwards;
+            animation-timing-function: ease-in-out;
         }
 
-        .card.animate-back {
-            animation: flipZoomOut 1s forwards; /* Increased duration */
+        .card-tilt.animate-back {
+            animation: flipZoomOut 2.5s forwards;
+            animation-timing-function: ease-in-out;
         }
 
         @keyframes flipZoomIn {
             0% {
-                transform: rotateY(0deg) scale(1);
+                transform: rotateX(0deg) rotateY(0deg) scale(1);
             }
-            40% {
-                transform: rotateY(190deg) scale(1.1); /* Over-rotation */
-            }
-            60% {
-                transform: rotateY(170deg) scale(1.15); /* Correction */
-            }
-            80% {
-                transform: rotateY(180deg) scale(1.2); /* Settle */
+            50% {
+                transform: rotateX(0deg) rotateY(180deg) scale(1.25);
             }
             100% {
-                transform: rotateY(180deg) scale(1.2);
+                transform: rotateX(0deg) rotateY(360deg) scale(1.5);
             }
         }
 
         @keyframes flipZoomOut {
             0% {
-                transform: rotateY(180deg) scale(1.2);
+                transform: rotateX(0deg) rotateY(360deg) scale(1.5);
             }
-            40% {
-                transform: rotateY(370deg) scale(1.15); /* Over-rotation */
-            }
-            60% {
-                transform: rotateY(350deg) scale(1.1); /* Correction */
-            }
-            80% {
-                transform: rotateY(360deg) scale(1); /* Settle */
+            50% {
+                transform: rotateX(0deg) rotateY(180deg) scale(1.25);
             }
             100% {
-                transform: rotateY(360deg) scale(1);
+                transform: rotateX(0deg) rotateY(0deg) scale(1);
             }
         }
+
     </style>
 </head>
 <body>
@@ -138,6 +179,12 @@
         <div class="card-tilt">
             <div class="card">
                 <div class="card-face card-front">
+                    <!-- Test Image with Glitter Effect -->
+                    <div class="test-image-container">
+                        <img src="assets/cardParts/test-image.PNG" alt="Test Image">
+                        <div class="glitter-overlay"></div>
+                    </div>
+                    <!-- Sheen Layer -->
                     <div class="sheen"></div>
                 </div>
                 <div class="card-face card-back">
@@ -156,6 +203,9 @@
         let isFlipped = false;
 
         cardContainer.addEventListener('mousemove', (e) => {
+            if (cardTilt.classList.contains('animating')) {
+                return; // Disable tilt during animation
+            }
             const rect = cardContainer.getBoundingClientRect();
             const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
             const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
@@ -172,32 +222,38 @@
             const rotateX = ((e.clientY - rect.top - centerY) / centerY) * 10;
             const rotateY = ((e.clientX - rect.left - centerX) / centerX) * -10;
 
-            cardTilt.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            cardTilt.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${isFlipped ? 1.5 : 1})`;
         });
 
         cardContainer.addEventListener('mouseleave', () => {
-            cardTilt.style.transform = 'rotateX(0deg) rotateY(0deg)';
+            if (cardTilt.classList.contains('animating')) {
+                return; // Disable during animation
+            }
+            cardTilt.style.transform = `rotateX(0deg) rotateY(0deg) scale(${isFlipped ? 1.5 : 1})`;
             sheens.forEach(sheen => {
                 sheen.style.setProperty('--sheen-opacity', '0');
             });
         });
 
         cardContainer.addEventListener('click', () => {
-            if (!card.classList.contains('animating')) {
+            if (!cardTilt.classList.contains('animating')) {
                 if (!isFlipped) {
-                    card.classList.add('animating', 'animate');
-                    isFlipped = true;
+                    cardTilt.classList.add('animating', 'animate');
                 } else {
-                    card.classList.add('animating', 'animate-back');
-                    isFlipped = false;
+                    cardTilt.classList.add('animating', 'animate-back');
                 }
 
-                // Remove 'animating' class after animation ends
-                card.addEventListener('animationend', () => {
-                    card.classList.remove('animating', 'animate', 'animate-back');
+                // Toggle the isFlipped state after the animation ends
+                cardTilt.addEventListener('animationend', () => {
+                    cardTilt.classList.remove('animating', 'animate', 'animate-back');
+                    isFlipped = !isFlipped;
+                    // Set the transform to the final state
+                    cardTilt.style.transform = `rotateX(0deg) rotateY(0deg) scale(${isFlipped ? 1.5 : 1})`;
                 }, { once: true });
             }
         });
     </script>
+    <script src="../src/utils/pxlwaveConv.js" defer></script>
+    <script src="../src/pages/collections.js" defer></script>
 </body>
 </html>
