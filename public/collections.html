@@ -66,7 +66,7 @@
         height: 100%;
         object-fit: cover;
         position: relative;
-        z-index: 1;
+        z-index: 0;
       }
 
       .card-front {
@@ -151,24 +151,50 @@
         animation-timing-function: ease-in-out;
       }
 
+      /* Text Box Styles Start */
+      .callsign {
+        position: absolute;
+        top: 2px;
+        left: 94px;
+        width: 75px;
+        height: 14px;
+        color: black;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 10px; /* Adjust font size as needed */
+        line-height: 14px; /* Vertically center the text */
+        overflow: hidden; /* Hide overflow if text is too long */
+        background-color: rgba(
+          255,
+          255,
+          255,
+          0
+        ); /* Optional: background for better readability */
+        border: 0px;
+        border-radius: 2px; /* Optional: slight rounding of corners */
+        z-index: 4;
+      }
+
       @keyframes flipZoomIn {
         0% {
           transform: rotateX(0deg) rotateY(0deg) scale(1);
         }
         50% {
-          transform: rotateX(0deg) rotateY(180deg) scale(1.25);
+          transform: rotateX(30deg) rotateY(180deg) scale(2);
         }
         100% {
-          transform: rotateX(0deg) rotateY(360deg) scale(1.5);
+          transform: rotateX(0deg) rotateY(360deg) scale(2.5);
         }
       }
 
       @keyframes flipZoomOut {
         0% {
-          transform: rotateX(0deg) rotateY(360deg) scale(1.5);
+          transform: rotateX(0deg) rotateY(360deg) scale(2.5);
         }
         50% {
-          transform: rotateX(0deg) rotateY(180deg) scale(1.25);
+          transform: rotateX(30deg) rotateY(180deg) scale(2);
         }
         100% {
           transform: rotateX(0deg) rotateY(0deg) scale(1);
@@ -178,22 +204,25 @@
   </head>
   <body>
     <div class="card-container">
-        <div class="card-tilt">
-            <div class="card">
-                <div class="card-face card-front">
-                    <!-- Test Image with Glitter Effect -->
-                    <div class="image-container">
-                        <img src="assets/cardParts/test-image.PNG" alt="Image">
-                        <div class="imgsheen"></div>
-                    </div>
-                    <!-- Sheen Layer -->
-                    <div class="sheen"></div>
-                </div>
-                <div class="card-face card-back">
-                    <div class="sheen"></div>
-                </div>
+      <div class="card-tilt">
+        <div class="card">
+          <div class="card-face card-front">
+            <!-- Test Image with Glitter Effect -->
+            <div class="image-container">
+              <img src="assets/cardParts/test-image.PNG" alt="Image" />
+              <div class="imgsheen"></div>
             </div>
+            <!-- Sheen Layer -->
+            <div class="sheen"></div>
+            <!-- Text Box Addition Start -->
+            <div id="callsign"class="callsign">M7WDS</div>
+            <!-- Text Box Addition End -->
+          </div>
+          <div class="card-face card-back">
+            <div class="sheen"></div>
+          </div>
         </div>
+      </div>
     </div>
 
     <script>
@@ -232,7 +261,7 @@
         const rotateY = ((e.clientX - rect.left - centerX) / centerX) * -10;
 
         cardTilt.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${
-          isFlipped ? 1.5 : 1
+          isFlipped ? 2.5 : 1
         })`;
       });
 
@@ -241,7 +270,7 @@
           return; // Disable during animation
         }
         cardTilt.style.transform = `rotateX(0deg) rotateY(0deg) scale(${
-          isFlipped ? 1.5 : 1
+          isFlipped ? 2.5 : 1
         })`;
         sheens.forEach((sheen) => {
           sheen.style.setProperty("--sheen-opacity", "0");
@@ -267,7 +296,7 @@
               isFlipped = !isFlipped;
               // Set the transform to the final state
               cardTilt.style.transform = `rotateX(0deg) rotateY(0deg) scale(${
-                isFlipped ? 1.5 : 1
+                isFlipped ? 2.5 : 1
               })`;
             },
             { once: true }
