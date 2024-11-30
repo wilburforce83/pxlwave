@@ -130,8 +130,8 @@ async function createContactsWindow() {
 
 async function createCollectionsWindow() {
     collectionsWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 1280,
+        height: 800,
         backgroundColor: '#1e1e1e',
         parent: mainWindow,
         resizable: false,
@@ -228,7 +228,7 @@ const menuTemplate = [
                 click: createContactsWindow,
             },
             {
-                label: 'Collections',
+                label: 'Collectables',
                 click: createCollectionsWindow,
             },
         ],

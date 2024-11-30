@@ -1,33 +1,209 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <title>Collections</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            perspective: 1000px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .card-container {
+            width: 180px;
+            height: 250px;
+            perspective: 600px;
+        }
+
+        .card-tilt {
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+            transform-origin: center center;
+            /* Initialize the transform */
+            transform: rotateX(0deg) rotateY(0deg) scale(1);
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            border: 0px !important;
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+        }
+
+        .card-front, .card-back {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .card-front {
+            background-image: url('assets/cardParts/front.png');
+        }
+
+        .card-back {
+            background-image: url('assets/cardParts/back.png');
+            transform: rotateY(180deg);
+        }
+
+        /* Sheen element */
+        .sheen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(
+                circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+                rgba(217, 255, 250, 0.949),
+                rgba(255, 255, 255, 0) 60%
+            );
+            opacity: var(--sheen-opacity, 0);
+            transition: opacity 0.3s ease-out;
+            /* Apply the mask */
+            mask-image: url('assets/cardParts/front.png');
+            mask-size: cover;
+            mask-repeat: no-repeat;
+            mask-position: center;
+            /* For WebKit browsers */
+            -webkit-mask-image: url('assets/cardParts/front.png');
+            -webkit-mask-size: cover;
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+        }
+
+        .card-back .sheen {
+            /* Update the mask to use back image */
+            mask-image: url('assets/cardParts/back.png');
+            -webkit-mask-image: url('assets/cardParts/back.png');
+        }
+
+        /* Flip and Zoom Animations */
+        .card-tilt.animate {
+            animation: flipZoomIn 2.5s forwards;
+            animation-timing-function: ease-in-out;
+        }
+
+        .card-tilt.animate-back {
+            animation: flipZoomOut 2.5s forwards;
+            animation-timing-function: ease-in-out;
+        }
+
+        @keyframes flipZoomIn {
+            0% {
+                transform: rotateX(0deg) rotateY(0deg) scale(1);
+            }
+            50% {
+                transform: rotateX(0deg) rotateY(180deg) scale(1.25);
+            }
+            100% {
+                transform: rotateX(0deg) rotateY(360deg) scale(1.5);
+            }
+        }
+
+        @keyframes flipZoomOut {
+            0% {
+                transform: rotateX(0deg) rotateY(360deg) scale(1.5);
+            }
+            50% {
+                transform: rotateX(0deg) rotateY(180deg) scale(1.25);
+            }
+            100% {
+                transform: rotateX(0deg) rotateY(0deg) scale(1);
+            }
+        }
+
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h2>My Collection</h2>
-        <div id="collections-grid" class="image-grid">
-            <!-- Cards will be dynamically inserted here -->
+    <div class="card-container">
+        <div class="card-tilt">
+            <div class="card">
+                <div class="card-face card-front">
+                    <div class="sheen"></div>
+                </div>
+                <div class="card-face card-back">
+                    <div class="sheen"></div>
+                </div>
+            </div>
         </div>
     </div>
 
-   <!-- Modal for viewing larger card -->
-<div id="modal" class="modal" style="display: none;">
-    <div class="modal-content">
-        <span id="modal-close" class="close">&times;</span>
-        <canvas id="modal-image" width="256" height="256"></canvas>
-        <div id="card-info">
-            <!-- Information will be dynamically updated -->
-        </div>
-        <button id="prev-card">Previous</button>
-        <button id="delete-card">Delete</button>
-        <button id="next-card">Next</button>
-    </div>
-</div>
-<script src="../src/utils/pxlwaveConv.js" defer></script>
-    <script src="../src/pages/collections.js" defer></script>
-    
+    <script>
+        const cardContainer = document.querySelector('.card-container');
+        const cardTilt = cardContainer.querySelector('.card-tilt');
+        const card = cardTilt.querySelector('.card');
+        const sheens = card.querySelectorAll('.sheen');
+
+        let isFlipped = false;
+
+        cardContainer.addEventListener('mousemove', (e) => {
+            if (cardTilt.classList.contains('animating')) {
+                return; // Disable tilt during animation
+            }
+            const rect = cardContainer.getBoundingClientRect();
+            const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+            const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+
+            sheens.forEach(sheen => {
+                sheen.style.setProperty('--mouse-x', `${xPercent}%`);
+                sheen.style.setProperty('--mouse-y', `${yPercent}%`);
+                sheen.style.setProperty('--sheen-opacity', '0.4');
+            });
+
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+
+            const rotateX = ((e.clientY - rect.top - centerY) / centerY) * 10;
+            const rotateY = ((e.clientX - rect.left - centerX) / centerX) * -10;
+
+            cardTilt.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${isFlipped ? 1.5 : 1})`;
+        });
+
+        cardContainer.addEventListener('mouseleave', () => {
+            if (cardTilt.classList.contains('animating')) {
+                return; // Disable during animation
+            }
+            cardTilt.style.transform = `rotateX(0deg) rotateY(0deg) scale(${isFlipped ? 1.5 : 1})`;
+            sheens.forEach(sheen => {
+                sheen.style.setProperty('--sheen-opacity', '0');
+            });
+        });
+
+        cardContainer.addEventListener('click', () => {
+            if (!cardTilt.classList.contains('animating')) {
+                if (!isFlipped) {
+                    cardTilt.classList.add('animating', 'animate');
+                } else {
+                    cardTilt.classList.add('animating', 'animate-back');
+                }
+
+                // Toggle the isFlipped state after the animation ends
+                cardTilt.addEventListener('animationend', () => {
+                    cardTilt.classList.remove('animating', 'animate', 'animate-back');
+                    isFlipped = !isFlipped;
+                    // Set the transform to the final state
+                    cardTilt.style.transform = `rotateX(0deg) rotateY(0deg) scale(${isFlipped ? 1.5 : 1})`;
+                }, { once: true });
+            }
+        });
+    </script>
+     <script src="../src/utils/pxlwaveConv.js" defer></script>
+     <script src="../src/pages/collections.js" defer></script>
 </body>
 </html>
+    
