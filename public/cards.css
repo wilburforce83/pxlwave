@@ -1,0 +1,371 @@
+body {
+    perspective: 1000px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+
+  .card-container {
+    width: 180px;
+    height: 250px;
+    perspective: 600px;
+  }
+
+  .card-tilt {
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+    transform-origin: center center;
+    /* Initialize the transform */
+    transform: rotateX(0deg) rotateY(0deg) scale(1);
+  }
+
+  .card {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    border: 0px !important;
+  }
+
+  .card-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+  }
+
+  .card-front,
+  .card-back {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* Test Image Container */
+  .image-container {
+    position: absolute;
+    top: 15px; /* 60px from the top */
+    left: 10px; /* 40px from the left */
+    width: 160px; /* Adjust size as needed */
+    height: 160px; /* Adjust size as needed */
+    z-index: 1; /* Below the background image and sheen */
+  }
+
+  .image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: relative;
+    z-index: 0;
+  }
+
+  .card-front {
+    background-image: url("assets/cardParts/front.png");
+  }
+
+  .card-back {
+    background-image: url("assets/cardParts/back.png");
+    transform: rotateY(180deg);
+  }
+
+  /* Sheen element */
+  .sheen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(
+      circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(217, 255, 250, 0.949),
+      rgba(255, 255, 255, 0) 60%
+    );
+    opacity: var(--sheen-opacity, 0);
+    transition: opacity 0.3s ease-out;
+    /* Apply the mask */
+    mask-image: url("assets/cardParts/front.png");
+    mask-size: cover;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    /* For WebKit browsers */
+    -webkit-mask-image: url("assets/cardParts/front.png");
+    -webkit-mask-size: cover;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    z-index: 3; /* Above all other layers */
+  }
+
+  /* Sheen element */
+  .imgsheen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(
+      circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(217, 255, 250, 0.949),
+      rgba(255, 255, 255, 0) 60%
+    );
+    opacity: var(--sheen-opacity, 0);
+    transition: opacity 0.3s ease-out;
+    /* Apply the mask */
+    mask-image: url("assets/cardParts/test-image.png");
+    mask-size: cover;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    /* For WebKit browsers */
+    -webkit-mask-image: url("assets/cardParts/test-image.png");
+    -webkit-mask-size: cover;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    z-index: 3; /* Above all other layers */
+  }
+
+  .card-back .sheen {
+    /* Update the mask to use back image */
+    mask-image: url("assets/cardParts/back.png");
+    -webkit-mask-image: url("assets/cardParts/back.png");
+  }
+
+  /* Flip and Zoom Animations */
+  .card-tilt.animate {
+    animation: flipZoomIn 2.5s forwards;
+    animation-timing-function: ease-in-out;
+  }
+
+  .card-tilt.animate-back {
+    animation: flipZoomOut 2.5s forwards;
+    animation-timing-function: ease-in-out;
+  }
+
+  /* Text Box Styles Start */
+  .callsign {
+    position: absolute;
+    top: 2px;
+    left: 94px;
+    width: 75px;
+    height: 14px;
+    color: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 10px; /* Adjust font size as needed */
+    line-height: 14px; /* Vertically center the text */
+    overflow: hidden; /* Hide overflow if text is too long */
+    background-color: rgba(
+      255,
+      255,
+      255,
+      0
+    ); /* Optional: background for better readability */
+    border: 0px;
+    border-radius: 2px; /* Optional: slight rounding of corners */
+    z-index: 4;
+  }
+
+  /* Text Box Styles Start */
+  .name {
+    position: absolute;
+    top: 185px;
+    left: 17px;
+    width: 80px;
+    height: 14px;
+    color: black;
+    display: flex;
+    align-items: left;
+    justify-content: left;
+    text-align: left;
+    font-size: 5px; /* Adjust font size as needed */
+    line-height: 14px; /* Vertically center the text */
+    overflow: hidden; /* Hide overflow if text is too long */
+    background-color: rgba(
+      255,
+      255,
+      255,
+      0
+    ); /* Optional: background for better readability */
+    border: 0px;
+    border-radius: 2px; /* Optional: slight rounding of corners */
+    z-index: 4;
+  }
+
+  .location {
+    position: absolute;
+    top: 195px;
+    left: 17px;
+    width: 80px;
+    height: 14px;
+    color: black;
+    display: flex;
+    align-items: left;
+    justify-content: left;
+    text-align: left;
+    font-size: 5px; /* Adjust font size as needed */
+    line-height: 14px; /* Vertically center the text */
+    overflow: hidden; /* Hide overflow if text is too long */
+    background-color: rgba(
+      255,
+      255,
+      255,
+      0
+    ); /* Optional: background for better readability */
+    border: 0px;
+    border-radius: 2px; /* Optional: slight rounding of corners */
+    z-index: 4;
+  }
+
+  .distance {
+    position: absolute;
+    top: 205px;
+    left: 17px;
+    width: 80px;
+    height: 14px;
+    color: black;
+    display: flex;
+    align-items: left;
+    justify-content: left;
+    text-align: left;
+    font-size: 5px; /* Adjust font size as needed */
+    line-height: 14px; /* Vertically center the text */
+    overflow: hidden; /* Hide overflow if text is too long */
+    background-color: rgba(
+      255,
+      255,
+      255,
+      0
+    ); /* Optional: background for better readability */
+    border: 0px;
+    border-radius: 2px; /* Optional: slight rounding of corners */
+    z-index: 4;
+  }
+
+  .quality {
+    position: absolute;
+    top: 185px;
+    left: 97px;
+    width: 80px;
+    height: 14px;
+    color: black;
+    display: flex;
+    align-items: left;
+    justify-content: left;
+    text-align: left;
+    font-size: 5px; /* Adjust font size as needed */
+    line-height: 14px; /* Vertically center the text */
+    overflow: hidden; /* Hide overflow if text is too long */
+    background-color: rgba(
+      255,
+      255,
+      255,
+      0
+    ); /* Optional: background for better readability */
+    border: 0px;
+    border-radius: 2px; /* Optional: slight rounding of corners */
+    z-index: 4;
+  }
+
+  .snr {
+    position: absolute;
+    top: 195px;
+    left: 97px;
+    width: 80px;
+    height: 14px;
+    color: black;
+    display: flex;
+    align-items: left;
+    justify-content: left;
+    text-align: left;
+    font-size: 5px; /* Adjust font size as needed */
+    line-height: 14px; /* Vertically center the text */
+    overflow: hidden; /* Hide overflow if text is too long */
+    background-color: rgba(
+      255,
+      255,
+      255,
+      0
+    ); /* Optional: background for better readability */
+    border: 0px;
+    border-radius: 2px; /* Optional: slight rounding of corners */
+    z-index: 4;
+  }
+
+  .dxscore {
+    position: absolute;
+    top: 205px;
+    left: 97px;
+    width: 80px;
+    height: 14px;
+    color: black;
+    display: flex;
+    align-items: left;
+    justify-content: left;
+    text-align: left;
+    font-size: 5px; /* Adjust font size as needed */
+    line-height: 14px; /* Vertically center the text */
+    overflow: hidden; /* Hide overflow if text is too long */
+    background-color: rgba(
+      255,
+      255,
+      255,
+      0
+    ); /* Optional: background for better readability */
+    border: 0px;
+    border-radius: 2px; /* Optional: slight rounding of corners */
+    z-index: 4;
+  }
+
+
+  /*  Rarity image */
+
+  /* Test Image Container */
+  .qso-container {
+    position: absolute;
+    top: 224px; /* 60px from the top */
+    left: 3px; /* 40px from the left */
+    width: 30px; /* Adjust size as needed */
+    height: 30px; /* Adjust size as needed */
+    z-index: 1; /* Below the background image and sheen */
+  }
+
+  .qso-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: relative;
+    z-index: 0;
+  }
+
+
+
+
+  @keyframes flipZoomIn {
+    0% {
+      transform: rotateX(0deg) rotateY(0deg) scale(1);
+    }
+    50% {
+      transform: rotateX(30deg) rotateY(180deg) scale(2);
+    }
+    100% {
+      transform: rotateX(0deg) rotateY(360deg) scale(2.5);
+    }
+  }
+
+  @keyframes flipZoomOut {
+    0% {
+      transform: rotateX(0deg) rotateY(360deg) scale(2.5);
+    }
+    50% {
+      transform: rotateX(30deg) rotateY(180deg) scale(2);
+    }
+    100% {
+      transform: rotateX(0deg) rotateY(0deg) scale(1);
+    }
+  }

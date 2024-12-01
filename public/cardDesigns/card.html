@@ -1,25 +1,127 @@
- <!-- Text Box Addition Start -->
- <div class="callsign">M7WDS</div>
- <!-- Text Box Addition End -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Collections</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="cards.css" />
+    <style>
+     
+    </style>
+  </head>
+  <body>
+    <div class="card-container">
+      <div class="card-tilt">
+        <div class="card">
+          <div class="card-face card-front">
+            <!-- Test Image with Glitter Effect -->
+            <div class="image-container">
+              <img src="assets/cardParts/test-image.PNG" alt="Image" />
+              <div class="imgsheen"></div>
+            </div>
+            <!-- Sheen Layer -->
+            <div class="sheen"></div>
+            <!-- Stats Boxes Start -->
+            <div id="callsign"class="callsign">M7WDS</div>
+            <div id="distance"class="distance">Distance: 4807 km</div>
+            <div id="location"class="location">Rolvenden, England</div>
+            <div id="name"class="name">Will Shearer</div>
+            <div id="quality"class="quality">Quality Score: 87/100</div>
+            <div id="snr"class="snr">SNR Score: 0/100</div>
+            <div id="dxscore"class="dxscore">DX Score: 47/100</div>
+            <!-- Stats Box End -->
+             <!--Card rarity image-->
+             <div class="qso-container">
+                <img src="assets/cardParts/QSO.png" alt="Image" />
+                <div class="imgsheen"></div>
+              </div>
+          </div>
+          <div class="card-face card-back">
+            <div class="sheen"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <script>
+      const cardContainer = document.querySelector(".card-container");
+      const cardTilt = cardContainer.querySelector(".card-tilt");
+      const card = cardTilt.querySelector(".card");
+      const sheens = card.querySelectorAll(".sheen");
+      const sheensImg = card.querySelectorAll(".imgsheen");
 
+      let isFlipped = false;
 
+      cardContainer.addEventListener("mousemove", (e) => {
+        if (cardTilt.classList.contains("animating")) {
+          return; // Disable tilt during animation
+        }
+        const rect = cardContainer.getBoundingClientRect();
+        const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+        const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
 
- /* Text Box Styles Start */
- .callsign {
-   position: absolute;
-   top: 4px;
-   left: 114px;
-   width: 75px;
-   height: 14px;
-   display: flex;
-   align-items: center;
-   justify-content: center;
-   text-align: center;
-   font-size: 10px; /* Adjust font size as needed */
-   line-height: 14px; /* Vertically center the text */
-   overflow: hidden; /* Hide overflow if text is too long */
-   background-color: rgba(255, 255, 255, 0.8); /* Optional: background for better readability */
-   border: 1px solid #ccc; /* Optional: border for the text box */
-   border-radius: 2px; /* Optional: slight rounding of corners */
- }
+        sheens.forEach((sheen) => {
+          sheen.style.setProperty("--mouse-x", `${xPercent}%`);
+          sheen.style.setProperty("--mouse-y", `${yPercent}%`);
+          sheen.style.setProperty("--sheen-opacity", "0.1");
+        });
+
+        sheensImg.forEach((sheen) => {
+          sheen.style.setProperty("--mouse-x", `${xPercent}%`);
+          sheen.style.setProperty("--mouse-y", `${yPercent}%`);
+          sheen.style.setProperty("--sheen-opacity", "0.1");
+        });
+
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+
+        const rotateX = ((e.clientY - rect.top - centerY) / centerY) * 10;
+        const rotateY = ((e.clientX - rect.left - centerX) / centerX) * -10;
+
+        cardTilt.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${
+          isFlipped ? 2.5 : 1
+        })`;
+      });
+
+      cardContainer.addEventListener("mouseleave", () => {
+        if (cardTilt.classList.contains("animating")) {
+          return; // Disable during animation
+        }
+        cardTilt.style.transform = `rotateX(0deg) rotateY(0deg) scale(${
+          isFlipped ? 2.5 : 1
+        })`;
+        sheens.forEach((sheen) => {
+          sheen.style.setProperty("--sheen-opacity", "0");
+        });
+        sheensImg.forEach((sheen) => {
+          sheen.style.setProperty("--sheen-opacity", "0");
+        });
+      });
+
+      cardContainer.addEventListener("click", () => {
+        if (!cardTilt.classList.contains("animating")) {
+          if (!isFlipped) {
+            cardTilt.classList.add("animating", "animate");
+          } else {
+            cardTilt.classList.add("animating", "animate-back");
+          }
+
+          // Toggle the isFlipped state after the animation ends
+          cardTilt.addEventListener(
+            "animationend",
+            () => {
+              cardTilt.classList.remove("animating", "animate", "animate-back");
+              isFlipped = !isFlipped;
+              // Set the transform to the final state
+              cardTilt.style.transform = `rotateX(0deg) rotateY(0deg) scale(${
+                isFlipped ? 2.5 : 1
+              })`;
+            },
+            { once: true }
+          );
+        }
+      });
+    </script>
+    <script src="../src/utils/pxlwaveConv.js" defer></script>
+    <script src="../src/pages/collections.js" defer></script>
+  </body>
+</html>
