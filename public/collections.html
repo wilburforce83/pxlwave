@@ -1,30 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Collections</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="cards.css" />
+    <meta charset="UTF-8">
+    <title>Contact Cards Grid</title>
+    <link rel="stylesheet" href="feather.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="cards.css">
     <style>
-        .search-bar {
+        /* Grid container styling */
+
+        /* Search Bar Styling */
+.search-container {
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+#search-input {
+  width: 100%;
+  padding: 12px 20px;
+  box-sizing: border-box;
+}
+        #card-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             margin: 20px;
-            text-align: center;
         }
-        #search-input {
-            width: 50%;
-            padding: 10px;
-            font-size: 16px;
+
+        /* Card styling */
+        .card {
+            width: 100%;
+            transition: transform 1.6s;
+            transform-style: preserve-3d;
+            position: relative;
+        }
+
+        /* Card faces */
+        .card-face {
+            backface-visibility: hidden;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Front face */
+        .card-front {
+           
+            color: #000;
+            z-index: 2;
+        }
+
+        /* Back face */
+        .card-back {
+           
+            color: #000;
+            transform: rotateY(180deg);
+        }
+
+
+
+        /* Optional: Add hover effect to flip the card */
+        .card-container:hover .card {
+            transform: rotateY(360deg);
         }
     </style>
 </head>
 <body>
-    <div class="search-bar">
-        <input type="text" id="search-input" placeholder="Search by callsign, name, location, or country..." />
-    </div>
-    <div class="card-container">
-        <!-- Cards will be dynamically inserted here by JS -->
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="Search...">
+      </div>
+      <br>
+    <div id="card-grid">
+        <!-- Cards will be dynamically injected here -->
     </div>
 
-    <script src="../src/utils/pxlwaveConv.js" defer></script>
-    <script src="../src/pages/collections.js" defer></script>
+   <script src="../src/utils/pxlwaveConv.js" defer></script>
+   <script src="../src/pages/collections.js" defer></script>
 </body>
-</html>
+</html> 

@@ -1,9 +1,8 @@
 body {
-    perspective: 1000px;
-    display: flex;
+   
     justify-content: center;
     align-items: center;
-    height: 100vh;
+
     margin: 0;
   }
 
@@ -11,7 +10,17 @@ body {
     width: 180px;
     height: 250px;
     perspective: 600px;
+
   }
+
+  /* Card Container Styling */
+  .card-card-container {
+      width: 190px;
+      height: 260px;
+      perspective: 700px;
+  
+    }
+  
 
   .card-tilt {
     width: 100%;
