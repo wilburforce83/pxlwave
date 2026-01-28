@@ -15,6 +15,16 @@ let savedContacts;
 const txTag = document.getElementById('tx-tag');
 const rxTag = document.getElementById('rx-tag');
 
+if (typeof ipcRenderer !== 'undefined' && ipcRenderer.on) {
+    ipcRenderer.on('preferences-updated', (event, updatedPreferences) => {
+        preferences = { ...(preferences || {}), ...(updatedPreferences || {}) };
+        const callsignInput = document.getElementById('from-callsign');
+        if (callsignInput && updatedPreferences && updatedPreferences.callsign) {
+            callsignInput.value = updatedPreferences.callsign;
+        }
+    });
+}
+
 // Setup audio visualization with waterfall and waveform
 async function setupAudioVisualization() {
     try {
@@ -349,5 +359,4 @@ if (txGainSlider) {
         document.getElementById('log').innerHTML = '';
     });
 });
-
 

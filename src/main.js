@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, ipcMain, dialog, systemPreferences } = require
 const path = require('path');
 // Disable hardware acceleration to prevent GPU-related errors
 app.disableHardwareAcceleration();
+app.setName('PiQSL');
 
 let mainWindow;
 let yourCardsWindow;
@@ -376,6 +377,9 @@ ipcMain.handle('save-preferences', async (event, preferences) => {
     try {
         // Set all preferences at once
         store.set(preferences);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('preferences-updated', preferences);
+        }
         return 'Preferences saved successfully!';
     } catch (error) {
         console.error("Error saving preferences:", error);

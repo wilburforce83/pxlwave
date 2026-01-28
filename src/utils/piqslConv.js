@@ -1,4 +1,4 @@
-// pxlwaveConv.js
+// piqslConv.js
 
 // Define the color palette as an array
 const colorPalette = [
@@ -137,7 +137,7 @@ function renderGridToBase64(gridData, targetSize, drawGridLines = true) {
 
 
 
-// Add this function to pxlwaveConv.js
+// Add this function to piqslConv.js
 
 // Function to convert grid data to 4-tone grayscale
 function convertToFourTone(gridData) {

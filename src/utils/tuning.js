@@ -1,6 +1,6 @@
 // File containing modulation tuning data
 const { ipcRenderer } = require('electron');
-// Modulation: these are the 5 big variables to change the modulation of pxlwave
+// Modulation: these are the 5 big variables to change the modulation of PiQSL
 const MIN_TONE_FREQ = 800;
 const BANDWIDTH = 1500;
 const FFT_SIZE = 8192; // 1024, 2048, 4096, 8192 etc higher has better frequency reolsution but is slower and requires longer tones
@@ -153,4 +153,3 @@ function generateToneMaps(MIN_TONE_FREQ, BANDWIDTH) {
 }
 
 console.log("modulation specification:", toneMaps, END_OF_LINE);
-

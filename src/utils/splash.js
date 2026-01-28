@@ -1,4 +1,4 @@
-// Assuming the pxlwaveConv.js file is loaded and its functions are available
+// Assuming the piqslConv.js file is loaded and its functions are available
 const gridData = [
     13,
     13,
@@ -1038,7 +1038,7 @@ function renderImageProgressively(canvas, gridData) {
     let pixelIndex = 0;
     function renderNextPixel() {
         if (pixelIndex >= gridData.length) {
-            const welcome = document.getElementById('pxlwave-hello');
+            const welcome = document.getElementById('piqsl-hello');
             welcome.style.display = 'flex';
           setTimeout(hideSplashScreen,2000);
     
@@ -1083,4 +1083,3 @@ setTimeout(() => {
     splashScreen.style.display = 'none';
 }, 500); // Match this duration to the transition duration in CSS (0.5s here)
 }
-

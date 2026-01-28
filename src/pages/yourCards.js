@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const filePath = await ipcRenderer.invoke('select-file');
         if (filePath) {
             progressBarText.style.visibility = 'visible';
-            progressBarText.textContent = "Converting to Pxlwave...";
+            progressBarText.textContent = "Converting to PiQSL...";
             loadImage(filePath);
         }
     });
@@ -205,7 +205,7 @@ deleteImageButton.onclick = async () => {
         const percent = (completed / total) * 100;
         progressBarFill.style.width = percent + "%";
         if (percent < 100) {
-            progressBarText.textContent = "Converting to Pxlwave...";
+            progressBarText.textContent = "Converting to PiQSL...";
         } else {
             progressBarText.textContent = "Completed!";
         }
